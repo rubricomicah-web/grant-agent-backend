@@ -1,33 +1,11 @@
-import asyncio
-import sys
-import requests
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-
-from ddgs import DDGS
-from bs4 import BeautifulSoup
-
-# =========================
-# WINDOWS ASYNC FIX
-# =========================
-
-if sys.platform.startswith("win"):
-    asyncio.set_event_loop_policy(
-        asyncio.WindowsSelectorEventLoopPolicy()
-    )
-
-# =========================
-# APP
-# =========================
+from duckduckgo_search import DDGS
 
 app = FastAPI()
 
-# =========================
 # CORS FIX
-# =========================
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -36,61 +14,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# =========================
-# HOME
-# =========================
-
-@app.get("/")
-def home():
-
-    return {
-        "message": "Grant Simone API Running"
-    }
-
-# =========================
-# MODELS
-# =========================
-
+# REQUEST MODEL
 class GrantSearchRequest(BaseModel):
-
     businessType: str
     state: str
-    keywords: str = ""
 
 
-class ProposalRequest(BaseModel):
-
-    businessName: str
-    industry: str
-    location: str
-    fundingPurpose: str
-    grantName: str
-    sponsorOrganization: str
-    requestedAmount: str
-    projectSummary: str
-    timeline: str
-    targetPopulation: str
+# ROOT ROUTE
+@app.get("/")
+async def root():
+    return {
+        "message": "Grant Simone Backend Running"
+    }
 
 
-class SubmissionRequest(BaseModel):
-
-    businessName: str
-    ownerName: str
-    email: str
-    phone: str
-    industry: str
-    location: str
-    fundingPurpose: str
-    website: str
-    annualRevenue: str
-    employees: str
-    grantName: str
-    grantUrl: str
-
-# =========================
-# GRANT SEARCH
-# =========================
-
+# GRANT SEARCH ROUTE
 @app.post("/grant-search")
 async def grant_search(data: GrantSearchRequest):
 
@@ -109,137 +47,137 @@ async def grant_search(data: GrantSearchRequest):
             "Hello Alice grants"
         ]
 
-       REAL_GRANT_DOMAINS = [
+        REAL_GRANT_DOMAINS = [
 
-    ".gov",
+            ".gov",
 
-    "grants.gov",
+            "grants.gov",
 
-    "sba.gov",
+            "sba.gov",
 
-    "calosba.ca.gov",
+            "calosba.ca.gov",
 
-    "helloalice.com",
+            "helloalice.com",
 
-    "skip.com",
+            "skip.com",
 
-    "nav.com",
+            "nav.com",
 
-    "ambergrantsforwomen.com",
+            "ambergrantsforwomen.com",
 
-    "comcastrise.com",
+            "comcastrise.com",
 
-    "fedex.com"
-]
+            "fedex.com"
+        ]
 
-BAD_KEYWORDS = [
+        BAD_KEYWORDS = [
 
-    "how to",
+            "how to",
 
-    "tips",
+            "tips",
 
-    "guide",
+            "guide",
 
-    "blog",
+            "blog",
 
-    "article",
+            "article",
 
-    "restaurant",
+            "restaurant",
 
-    "tripadvisor",
+            "tripadvisor",
 
-    "trip canvas",
+            "trip canvas",
 
-    "food",
+            "food",
 
-    "menu",
+            "menu",
 
-    "hotel",
+            "hotel",
 
-    "bar"
-]
+            "bar"
+        ]
 
-grants = []
+        grants = []
 
-seen_urls = set()
+        seen_urls = set()
 
-with DDGS() as ddgs:
+        with DDGS() as ddgs:
 
-    for query in queries:
-
-        try:
-
-            results = list(
-                ddgs.text(
-                    query,
-                    max_results=10
-                )
-            )
-
-            for r in results:
+            for query in queries:
 
                 try:
 
-                    url = r.get("href", "")
-
-                    title = r.get(
-                        "title",
-                        "Unknown Grant"
+                    results = list(
+                        ddgs.text(
+                            query,
+                            max_results=10
+                        )
                     )
 
-                    description = r.get(
-                        "body",
-                        "Grant opportunity"
-                    )
+                    for r in results:
 
-                    if not url:
-                        continue
+                        try:
 
-                    if url in seen_urls:
-                        continue
+                            url = r.get("href", "")
 
-                    seen_urls.add(url)
+                            title = r.get(
+                                "title",
+                                "Unknown Grant"
+                            )
 
-                    url_lower = url.lower()
+                            description = r.get(
+                                "body",
+                                "Grant opportunity"
+                            )
 
-                    title_lower = title.lower()
+                            if not url:
+                                continue
 
-                    bad_result = any(
-                        word in title_lower
-                        for word in BAD_KEYWORDS
-                    )
+                            if url in seen_urls:
+                                continue
 
-                    real_domain = any(
-                        domain in url_lower
-                        for domain in REAL_GRANT_DOMAINS
-                    )
+                            seen_urls.add(url)
 
-                    if bad_result:
-                        continue
+                            url_lower = url.lower()
 
-                    if not real_domain:
-                        continue
+                            title_lower = title.lower()
 
-                    grants.append({
+                            bad_result = any(
+                                word in title_lower
+                                for word in BAD_KEYWORDS
+                            )
 
-                        "grantName":
-                            title,
+                            real_domain = any(
+                                domain in url_lower
+                                for domain in REAL_GRANT_DOMAINS
+                            )
 
-                        "applicationUrl":
-                            url,
+                            if bad_result:
+                                continue
 
-                        "description":
-                            description,
+                            if not real_domain:
+                                continue
 
-                        "safeToApply":
-                            True
-                    })
+                            grants.append({
+
+                                "grantName":
+                                    title,
+
+                                "applicationUrl":
+                                    url,
+
+                                "description":
+                                    description,
+
+                                "safeToApply":
+                                    True
+                            })
+
+                        except Exception:
+                            pass
 
                 except Exception:
                     pass
-
-        except Exception:
-            pass
 
         return {
 
@@ -250,116 +188,6 @@ with DDGS() as ddgs:
 
             "grants":
                 grants
-        }
-
-    except Exception as e:
-
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
-# =========================
-# PROPOSAL GENERATOR
-# =========================
-
-@app.post("/generate-proposal")
-async def generate_proposal(data: ProposalRequest):
-
-    try:
-
-        proposal = f"""
-GRANT PROPOSAL
-
-Business Name:
-{data.businessName}
-
-Industry:
-{data.industry}
-
-Location:
-{data.location}
-
-Funding Purpose:
-{data.fundingPurpose}
-
-Grant Name:
-{data.grantName}
-
-Requested Amount:
-{data.requestedAmount}
-
-Executive Summary:
-{data.businessName} is requesting funding support
-through the {data.grantName} program to support
-business expansion and operational growth.
-"""
-
-        return {
-            "success": True,
-            "proposal": proposal
-        }
-
-    except Exception as e:
-
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
-# =========================
-# SAFETY SCANNER
-# =========================
-
-@app.post("/submit-application")
-async def submit_application(data: SubmissionRequest):
-
-    try:
-
-        response = requests.get(
-            data.grantUrl,
-            timeout=10,
-            headers={
-                "User-Agent": "Mozilla/5.0"
-            }
-        )
-
-        html = response.text.lower()
-
-        requires_payment = any(
-            x in html for x in [
-                "application fee",
-                "pay now",
-                "checkout"
-            ]
-        )
-
-        requires_registration = any(
-            x in html for x in [
-                "sign in",
-                "register",
-                "create account"
-            ]
-        )
-
-        return {
-
-            "success": True,
-
-            "grantName":
-                data.grantName,
-
-            "grantUrl":
-                data.grantUrl,
-
-            "requiresPayment":
-                requires_payment,
-
-            "requiresRegistration":
-                requires_registration,
-
-            "safeToApply":
-                not requires_payment
         }
 
     except Exception as e:
