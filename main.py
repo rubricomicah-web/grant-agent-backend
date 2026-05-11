@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 
 app = FastAPI()
 
@@ -40,11 +40,6 @@ async def grant_search(data: GrantSearchRequest):
 
             f"small business grants {data.state}",
 
-            "FedEx small business grant",
-
-            "Comcast RISE grant",
-
-            "Hello Alice grants"
         ]
 
         REAL_GRANT_DOMAINS = [
@@ -110,7 +105,7 @@ async def grant_search(data: GrantSearchRequest):
                     results = list(
                         ddgs.text(
                             query,
-                            max_results=10
+                            max_results=5
                         )
                     )
 
