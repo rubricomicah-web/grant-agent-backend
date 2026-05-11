@@ -109,60 +109,137 @@ async def grant_search(data: GrantSearchRequest):
             "Hello Alice grants"
         ]
 
-        grants = []
+       REAL_GRANT_DOMAINS = [
 
-        seen_urls = set()
+    ".gov",
 
-        with DDGS() as ddgs:
+    "grants.gov",
 
-            for query in queries:
+    "sba.gov",
+
+    "calosba.ca.gov",
+
+    "helloalice.com",
+
+    "skip.com",
+
+    "nav.com",
+
+    "ambergrantsforwomen.com",
+
+    "comcastrise.com",
+
+    "fedex.com"
+]
+
+BAD_KEYWORDS = [
+
+    "how to",
+
+    "tips",
+
+    "guide",
+
+    "blog",
+
+    "article",
+
+    "restaurant",
+
+    "tripadvisor",
+
+    "trip canvas",
+
+    "food",
+
+    "menu",
+
+    "hotel",
+
+    "bar"
+]
+
+grants = []
+
+seen_urls = set()
+
+with DDGS() as ddgs:
+
+    for query in queries:
+
+        try:
+
+            results = list(
+                ddgs.text(
+                    query,
+                    max_results=10
+                )
+            )
+
+            for r in results:
 
                 try:
 
-                    results = list(
-                        ddgs.text(
-                            query,
-                            max_results=3
-                        )
+                    url = r.get("href", "")
+
+                    title = r.get(
+                        "title",
+                        "Unknown Grant"
                     )
 
-                    for r in results:
+                    description = r.get(
+                        "body",
+                        "Grant opportunity"
+                    )
 
-                        try:
+                    if not url:
+                        continue
 
-                            url = r.get("href")
+                    if url in seen_urls:
+                        continue
 
-                            if not url:
-                                continue
+                    seen_urls.add(url)
 
-                            if url in seen_urls:
-                                continue
+                    url_lower = url.lower()
 
-                            seen_urls.add(url)
+                    title_lower = title.lower()
 
-                            grants.append({
+                    bad_result = any(
+                        word in title_lower
+                        for word in BAD_KEYWORDS
+                    )
 
-                                "grantName":
-                                    r.get("title", "Unknown Grant"),
+                    real_domain = any(
+                        domain in url_lower
+                        for domain in REAL_GRANT_DOMAINS
+                    )
 
-                                "applicationUrl":
-                                    url,
+                    if bad_result:
+                        continue
 
-                                "description":
-                                    r.get(
-                                        "body",
-                                        "Grant opportunity"
-                                    ),
+                    if not real_domain:
+                        continue
 
-                                "safeToApply":
-                                    True
-                            })
+                    grants.append({
 
-                        except Exception:
-                            pass
+                        "grantName":
+                            title,
+
+                        "applicationUrl":
+                            url,
+
+                        "description":
+                            description,
+
+                        "safeToApply":
+                            True
+                    })
 
                 except Exception:
                     pass
+
+        except Exception:
+            pass
 
         return {
 
