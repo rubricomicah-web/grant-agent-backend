@@ -296,7 +296,57 @@ async def generate_proposal(data: ProposalRequest):
 
     try:
 
-        proposal = f"""
+        prompt = f"""
+Write a professional grant proposal.
+
+BUSINESS:
+{data.businessName}
+
+INDUSTRY:
+{data.industry}
+
+LOCATION:
+{data.location}
+
+FUNDING PURPOSE:
+{data.fundingPurpose}
+
+GRANT NAME:
+{data.grantName}
+
+SPONSOR:
+{data.sponsorOrganization}
+
+REQUESTED AMOUNT:
+{data.requestedAmount}
+
+PROJECT SUMMARY:
+{data.projectSummary}
+
+TIMELINE:
+{data.timeline}
+
+TARGET POPULATION:
+{data.targetPopulation}
+"""
+
+        try:
+
+            completion = client.chat.completions.create(
+                model="gpt-4.1-mini",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ]
+            )
+
+            proposal = completion.choices[0].message.content
+
+        except Exception:
+
+            proposal = f"""
 GRANT PROPOSAL
 
 Business Name:
@@ -318,7 +368,7 @@ Executive Summary:
 {data.businessName} is seeking funding to support business expansion, improve operational capacity, strengthen marketing efforts, acquire software systems, hire additional staff, and improve client services within the community.
 
 Business Overview:
-The company has successfully operated providing valuable financial and business services including tax preparation, credit restoration, business funding assistance, and financial education.
+The company provides financial and business services including tax preparation, credit restoration, business funding assistance, and financial education.
 
 Project Goals:
 - Expand business operations
@@ -326,9 +376,6 @@ Project Goals:
 - Improve software infrastructure
 - Strengthen marketing and outreach
 - Support underserved entrepreneurs
-
-Expected Impact:
-The funding will allow the business to serve more clients, improve financial literacy, increase business growth opportunities, and create long-term economic impact within the community.
 
 Timeline:
 {data.timeline}
@@ -451,12 +498,4 @@ async def submit_application(data: SubmissionRequest):
                 suspicious_detected,
 
             "message":
-                "Grant page scanned successfully"
-        }
-
-    except Exception as e:
-
-        return {
-            "success": False,
-            "error": str(e)
-        }
+                "
