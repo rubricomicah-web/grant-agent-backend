@@ -1,9 +1,9 @@
 import asyncio
 import sys
 import requests
-import os
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from ddgs import DDGS
@@ -25,6 +25,18 @@ if sys.platform.startswith("win"):
 app = FastAPI()
 
 # =========================
+# CORS FIX
+# =========================
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# =========================
 # HOME
 # =========================
 
@@ -32,7 +44,7 @@ app = FastAPI()
 def home():
 
     return {
-        "message": "Grant Agent API Running"
+        "message": "Grant Simone API Running"
     }
 
 # =========================
@@ -43,11 +55,7 @@ class GrantSearchRequest(BaseModel):
 
     businessType: str
     state: str
-    keywords: str
-
-    womanOwned: bool = True
-    minorityOwned: bool = False
-    veteranOwned: bool = False
+    keywords: str = ""
 
 
 class ProposalRequest(BaseModel):
@@ -80,7 +88,7 @@ class SubmissionRequest(BaseModel):
     grantUrl: str
 
 # =========================
-# REAL USA GRANT SEARCH
+# GRANT SEARCH
 # =========================
 
 @app.post("/grant-search")
@@ -90,19 +98,11 @@ async def grant_search(data: GrantSearchRequest):
 
         queries = [
 
-            f"{data.businessType} small business grants {data.state}",
+            f"{data.businessType} grants {data.state}",
 
-            f"{data.businessType} startup grants {data.state}",
-
-            f"women owned business grants {data.state}",
-
-            f"minority business grants {data.state}",
-
-            f"small business funding programs {data.state}",
+            f"small business grants {data.state}",
 
             "FedEx small business grant",
-
-            "Visa small business grant",
 
             "Comcast RISE grant",
 
@@ -113,17 +113,6 @@ async def grant_search(data: GrantSearchRequest):
 
         seen_urls = set()
 
-        bad_keywords = [
-            "student",
-            "college",
-            "university",
-            "financial aid",
-            "tuition",
-            "school",
-            "fafsa",
-            "scholarship"
-        ]
-
         with DDGS() as ddgs:
 
             for query in queries:
@@ -133,7 +122,7 @@ async def grant_search(data: GrantSearchRequest):
                     results = list(
                         ddgs.text(
                             query,
-                            max_results=5
+                            max_results=3
                         )
                     )
 
@@ -151,96 +140,22 @@ async def grant_search(data: GrantSearchRequest):
 
                             seen_urls.add(url)
 
-                            response = requests.get(
-                                url,
-                                timeout=8,
-                                headers={
-                                    "User-Agent":
-                                    "Mozilla/5.0"
-                                }
-                            )
-
-                            html = response.text
-
-                            soup = BeautifulSoup(
-                                html,
-                                "html.parser"
-                            )
-
-                            text = soup.get_text(
-                                " ",
-                                strip=True
-                            )
-
-                            lower = text.lower()
-
-                            if len(text) < 100:
-                                continue
-
-                            if any(
-                                bad in lower
-                                for bad in bad_keywords
-                            ):
-                                continue
-
-                            requires_payment = any(
-                                x in lower for x in [
-                                    "application fee",
-                                    "submit payment",
-                                    "processing fee",
-                                    "membership fee",
-                                    "pay now",
-                                    "checkout",
-                                    "billing"
-                                ]
-                            )
-
-                            requires_registration = any(
-                                x in lower for x in [
-                                    "create account",
-                                    "register",
-                                    "sign up",
-                                    "login required",
-                                    "member login"
-                                ]
-                            )
-
-                            captcha_detected = any(
-                                x in lower for x in [
-                                    "captcha",
-                                    "recaptcha",
-                                    "i'm not a robot"
-                                ]
-                            )
-
                             grants.append({
 
                                 "grantName":
-                                    r.get("title"),
+                                    r.get("title", "Unknown Grant"),
 
                                 "applicationUrl":
                                     url,
 
                                 "description":
-                                    r.get("body"),
-
-                                "requiresPayment":
-                                    requires_payment,
-
-                                "requiresRegistration":
-                                    requires_registration,
-
-                                "captchaDetected":
-                                    captcha_detected,
+                                    r.get(
+                                        "body",
+                                        "Grant opportunity"
+                                    ),
 
                                 "safeToApply":
-                                    not requires_payment,
-
-                                "businessType":
-                                    data.businessType,
-
-                                "state":
-                                    data.state
+                                    True
                             })
 
                         except Exception:
@@ -252,15 +167,6 @@ async def grant_search(data: GrantSearchRequest):
         return {
 
             "success": True,
-
-            "businessType":
-                data.businessType,
-
-            "state":
-                data.state,
-
-            "keywords":
-                data.keywords,
 
             "totalFound":
                 len(grants),
@@ -277,7 +183,7 @@ async def grant_search(data: GrantSearchRequest):
         }
 
 # =========================
-# SIMPLE PROPOSAL GENERATOR
+# PROPOSAL GENERATOR
 # =========================
 
 @app.post("/generate-proposal")
@@ -303,38 +209,13 @@ Funding Purpose:
 Grant Name:
 {data.grantName}
 
-Sponsor Organization:
-{data.sponsorOrganization}
-
 Requested Amount:
 {data.requestedAmount}
 
-Project Summary:
-{data.projectSummary}
-
-Timeline:
-{data.timeline}
-
-Target Population:
-{data.targetPopulation}
-
 Executive Summary:
-{data.businessName} is seeking funding support through the
-{data.grantName} program to expand operations, improve services,
-and create additional economic opportunities within the community.
-
-The requested funding will be used for:
-- Business expansion
-- Software upgrades
-- Marketing initiatives
-- Staffing improvements
-- Operational support
-
-This project will strengthen long-term sustainability,
-increase revenue opportunities, and improve service delivery.
-
-Conclusion:
-We appreciate your consideration and support for our business growth initiative.
+{data.businessName} is requesting funding support
+through the {data.grantName} program to support
+business expansion and operational growth.
 """
 
         return {
@@ -350,7 +231,7 @@ We appreciate your consideration and support for our business growth initiative.
         }
 
 # =========================
-# SAFE APPLICATION ANALYZER
+# SAFETY SCANNER
 # =========================
 
 @app.post("/submit-application")
@@ -360,62 +241,28 @@ async def submit_application(data: SubmissionRequest):
 
         response = requests.get(
             data.grantUrl,
-            timeout=15,
+            timeout=10,
             headers={
                 "User-Agent": "Mozilla/5.0"
             }
         )
 
-        html = response.text
-
-        soup = BeautifulSoup(
-            html,
-            "html.parser"
-        )
-
-        text = soup.get_text(
-            " ",
-            strip=True
-        )
-
-        lower = text.lower()
-
-        payment_keywords = [
-            "application fee",
-            "pay now",
-            "checkout",
-            "billing",
-            "processing fee",
-            "membership fee"
-        ]
+        html = response.text.lower()
 
         requires_payment = any(
-            keyword in lower
-            for keyword in payment_keywords
+            x in html for x in [
+                "application fee",
+                "pay now",
+                "checkout"
+            ]
         )
-
-        auth_keywords = [
-            "sign in",
-            "log in",
-            "create account",
-            "register",
-            "member login"
-        ]
 
         requires_registration = any(
-            keyword in lower
-            for keyword in auth_keywords
-        )
-
-        captcha_keywords = [
-            "captcha",
-            "recaptcha",
-            "i'm not a robot"
-        ]
-
-        captcha_detected = any(
-            keyword in lower
-            for keyword in captcha_keywords
+            x in html for x in [
+                "sign in",
+                "register",
+                "create account"
+            ]
         )
 
         return {
@@ -433,9 +280,6 @@ async def submit_application(data: SubmissionRequest):
 
             "requiresRegistration":
                 requires_registration,
-
-            "captchaDetected":
-                captcha_detected,
 
             "safeToApply":
                 not requires_payment
