@@ -5,7 +5,6 @@ import os
 
 from fastapi import FastAPI
 from pydantic import BaseModel
-from openai import OpenAI
 
 from ddgs import DDGS
 from bs4 import BeautifulSoup
@@ -24,16 +23,6 @@ if sys.platform.startswith("win"):
 # =========================
 
 app = FastAPI()
-
-# =========================
-# OPENAI
-# =========================
-
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-client = OpenAI(
-    api_key=OPENAI_API_KEY
-)
 
 # =========================
 # HOME
@@ -288,7 +277,7 @@ async def grant_search(data: GrantSearchRequest):
         }
 
 # =========================
-# PROPOSAL GENERATOR
+# SIMPLE PROPOSAL GENERATOR
 # =========================
 
 @app.post("/generate-proposal")
@@ -296,57 +285,7 @@ async def generate_proposal(data: ProposalRequest):
 
     try:
 
-        prompt = f"""
-Write a professional grant proposal.
-
-BUSINESS:
-{data.businessName}
-
-INDUSTRY:
-{data.industry}
-
-LOCATION:
-{data.location}
-
-FUNDING PURPOSE:
-{data.fundingPurpose}
-
-GRANT NAME:
-{data.grantName}
-
-SPONSOR:
-{data.sponsorOrganization}
-
-REQUESTED AMOUNT:
-{data.requestedAmount}
-
-PROJECT SUMMARY:
-{data.projectSummary}
-
-TIMELINE:
-{data.timeline}
-
-TARGET POPULATION:
-{data.targetPopulation}
-"""
-
-        try:
-
-            completion = client.chat.completions.create(
-                model="gpt-4.1-mini",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ]
-            )
-
-            proposal = completion.choices[0].message.content
-
-        except Exception:
-
-            proposal = f"""
+        proposal = f"""
 GRANT PROPOSAL
 
 Business Name:
@@ -361,27 +300,41 @@ Location:
 Funding Purpose:
 {data.fundingPurpose}
 
+Grant Name:
+{data.grantName}
+
+Sponsor Organization:
+{data.sponsorOrganization}
+
 Requested Amount:
 {data.requestedAmount}
 
-Executive Summary:
-{data.businessName} is seeking funding to support business expansion, improve operational capacity, strengthen marketing efforts, acquire software systems, hire additional staff, and improve client services within the community.
-
-Business Overview:
-The company provides financial and business services including tax preparation, credit restoration, business funding assistance, and financial education.
-
-Project Goals:
-- Expand business operations
-- Increase staffing capacity
-- Improve software infrastructure
-- Strengthen marketing and outreach
-- Support underserved entrepreneurs
+Project Summary:
+{data.projectSummary}
 
 Timeline:
 {data.timeline}
 
 Target Population:
 {data.targetPopulation}
+
+Executive Summary:
+{data.businessName} is seeking funding support through the
+{data.grantName} program to expand operations, improve services,
+and create additional economic opportunities within the community.
+
+The requested funding will be used for:
+- Business expansion
+- Software upgrades
+- Marketing initiatives
+- Staffing improvements
+- Operational support
+
+This project will strengthen long-term sustainability,
+increase revenue opportunities, and improve service delivery.
+
+Conclusion:
+We appreciate your consideration and support for our business growth initiative.
 """
 
         return {
@@ -397,7 +350,7 @@ Target Population:
         }
 
 # =========================
-# GRANT SAFETY SCANNER
+# SAFE APPLICATION ANALYZER
 # =========================
 
 @app.post("/submit-application")
@@ -423,7 +376,9 @@ async def submit_application(data: SubmissionRequest):
         text = soup.get_text(
             " ",
             strip=True
-        ).lower()
+        )
+
+        lower = text.lower()
 
         payment_keywords = [
             "application fee",
@@ -434,7 +389,12 @@ async def submit_application(data: SubmissionRequest):
             "membership fee"
         ]
 
-        login_keywords = [
+        requires_payment = any(
+            keyword in lower
+            for keyword in payment_keywords
+        )
+
+        auth_keywords = [
             "sign in",
             "log in",
             "create account",
@@ -442,34 +402,20 @@ async def submit_application(data: SubmissionRequest):
             "member login"
         ]
 
+        requires_registration = any(
+            keyword in lower
+            for keyword in auth_keywords
+        )
+
         captcha_keywords = [
             "captcha",
             "recaptcha",
             "i'm not a robot"
         ]
 
-        suspicious_keywords = [
-            "wire transfer",
-            "gift card",
-            "crypto payment",
-            "bitcoin",
-            "send payment immediately"
-        ]
-
-        requires_payment = any(
-            x in text for x in payment_keywords
-        )
-
-        requires_login = any(
-            x in text for x in login_keywords
-        )
-
         captcha_detected = any(
-            x in text for x in captcha_keywords
-        )
-
-        suspicious_detected = any(
-            x in text for x in suspicious_keywords
+            keyword in lower
+            for keyword in captcha_keywords
         )
 
         return {
@@ -482,20 +428,22 @@ async def submit_application(data: SubmissionRequest):
             "grantUrl":
                 data.grantUrl,
 
-            "safeToApply":
-                not requires_payment and not suspicious_detected,
-
             "requiresPayment":
                 requires_payment,
 
-            "requiresLogin":
-                requires_login,
+            "requiresRegistration":
+                requires_registration,
 
             "captchaDetected":
                 captcha_detected,
 
-            "suspiciousWebsite":
-                suspicious_detected,
+            "safeToApply":
+                not requires_payment
+        }
 
-            "message":
-                "
+    except Exception as e:
+
+        return {
+            "success": False,
+            "error": str(e)
+        }

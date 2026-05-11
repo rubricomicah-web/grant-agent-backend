@@ -21,7 +21,6 @@ ENV/
 
 .env
 .env.*
-!.env.example
 
 # =========================
 # BUILD FILES
@@ -71,15 +70,7 @@ htmlcov/
 Thumbs.db
 
 # =========================
-# PLAYWRIGHT
+# TEMP FILES
 # =========================
 
-playwright-report/
-test-results/
-
-# =========================
-# SCREENSHOTS / TEMP
-# =========================
-
-grant_submission.png
 tempCodeRunnerFile.py

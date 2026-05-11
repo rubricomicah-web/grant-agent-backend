@@ -1,6 +1,5 @@
 fastapi
 uvicorn
-openai
 requests
 beautifulsoup4
 ddgs
