@@ -296,51 +296,46 @@ async def generate_proposal(data: ProposalRequest):
 
     try:
 
-        prompt = f"""
-Write a professional grant proposal.
+        proposal = f"""
+GRANT PROPOSAL
 
-BUSINESS:
+Business Name:
 {data.businessName}
 
-INDUSTRY:
+Industry:
 {data.industry}
 
-LOCATION:
+Location:
 {data.location}
 
-FUNDING PURPOSE:
+Funding Purpose:
 {data.fundingPurpose}
 
-GRANT NAME:
-{data.grantName}
-
-SPONSOR:
-{data.sponsorOrganization}
-
-REQUESTED AMOUNT:
+Requested Amount:
 {data.requestedAmount}
 
-PROJECT SUMMARY:
-{data.projectSummary}
+Executive Summary:
+{data.businessName} is seeking funding to support business expansion, improve operational capacity, strengthen marketing efforts, acquire software systems, hire additional staff, and improve client services within the community.
 
-TIMELINE:
+Business Overview:
+The company has successfully operated providing valuable financial and business services including tax preparation, credit restoration, business funding assistance, and financial education.
+
+Project Goals:
+- Expand business operations
+- Increase staffing capacity
+- Improve software infrastructure
+- Strengthen marketing and outreach
+- Support underserved entrepreneurs
+
+Expected Impact:
+The funding will allow the business to serve more clients, improve financial literacy, increase business growth opportunities, and create long-term economic impact within the community.
+
+Timeline:
 {data.timeline}
 
-TARGET POPULATION:
+Target Population:
 {data.targetPopulation}
 """
-
-        completion = client.chat.completions.create(
-            model="gpt-4.1-mini",
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
-        )
-
-        proposal = completion.choices[0].message.content
 
         return {
             "success": True,
@@ -355,145 +350,113 @@ TARGET POPULATION:
         }
 
 # =========================
-# AUTONOMOUS SUBMISSION
+# GRANT SAFETY SCANNER
 # =========================
 
 @app.post("/submit-application")
 async def submit_application(data: SubmissionRequest):
 
-    from playwright.async_api import async_playwright
-
     try:
 
-        async with async_playwright() as p:
-
-            browser = await p.chromium.launch(
-                headless=True,
-                args=[
-                    "--no-sandbox",
-                    "--disable-setuid-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu"
-                ]
-            )
-
-            page = await browser.new_page()
-
-            await page.goto(
-                data.grantUrl,
-                wait_until="domcontentloaded",
-                timeout=120000
-            )
-
-            await page.wait_for_timeout(5000)
-
-            page_text = await page.locator("body").inner_text()
-
-            lower = page_text.lower()
-
-            payment_keywords = [
-                "application fee",
-                "pay now",
-                "checkout",
-                "billing",
-                "processing fee",
-                "membership fee"
-            ]
-
-            for keyword in payment_keywords:
-
-                if keyword in lower:
-
-                    await browser.close()
-
-                    return {
-                        "success": False,
-                        "requiresPayment": True,
-                        "message": f"Grant requires payment ({keyword})"
-                    }
-
-            auth_keywords = [
-                "sign in",
-                "log in",
-                "create account",
-                "register",
-                "member login"
-            ]
-
-            for keyword in auth_keywords:
-
-                if keyword in lower:
-
-                    await browser.close()
-
-                    return {
-                        "success": False,
-                        "requiresRegistration": True,
-                        "message": f"Grant requires registration ({keyword})"
-                    }
-
-            captcha_keywords = [
-                "captcha",
-                "recaptcha",
-                "i'm not a robot"
-            ]
-
-            for keyword in captcha_keywords:
-
-                if keyword in lower:
-
-                    await browser.close()
-
-                    return {
-                        "success": False,
-                        "captchaDetected": True,
-                        "message": f"Captcha detected ({keyword})"
-                    }
-
-            print("PAGE PASSED SCAN")
-
-            try:
-                await page.locator(
-                    'input[type="email"]'
-                ).first.fill(data.email)
-            except:
-                pass
-
-            try:
-                await page.locator(
-                    'input[type="text"]'
-                ).nth(0).fill(data.ownerName)
-            except:
-                pass
-
-            try:
-                await page.locator(
-                    'input[type="text"]'
-                ).nth(1).fill(data.businessName)
-            except:
-                pass
-
-            try:
-                await page.locator(
-                    'input[type="tel"]'
-                ).fill(data.phone)
-            except:
-                pass
-
-            await page.screenshot(
-                path="grant_submission.png"
-            )
-
-            await browser.close()
-
-            return {
-                "success": True,
-                "message": "Automation completed successfully"
+        response = requests.get(
+            data.grantUrl,
+            timeout=15,
+            headers={
+                "User-Agent": "Mozilla/5.0"
             }
+        )
+
+        html = response.text
+
+        soup = BeautifulSoup(
+            html,
+            "html.parser"
+        )
+
+        text = soup.get_text(
+            " ",
+            strip=True
+        ).lower()
+
+        payment_keywords = [
+            "application fee",
+            "pay now",
+            "checkout",
+            "billing",
+            "processing fee",
+            "membership fee"
+        ]
+
+        login_keywords = [
+            "sign in",
+            "log in",
+            "create account",
+            "register",
+            "member login"
+        ]
+
+        captcha_keywords = [
+            "captcha",
+            "recaptcha",
+            "i'm not a robot"
+        ]
+
+        suspicious_keywords = [
+            "wire transfer",
+            "gift card",
+            "crypto payment",
+            "bitcoin",
+            "send payment immediately"
+        ]
+
+        requires_payment = any(
+            x in text for x in payment_keywords
+        )
+
+        requires_login = any(
+            x in text for x in login_keywords
+        )
+
+        captcha_detected = any(
+            x in text for x in captcha_keywords
+        )
+
+        suspicious_detected = any(
+            x in text for x in suspicious_keywords
+        )
+
+        return {
+
+            "success": True,
+
+            "grantName":
+                data.grantName,
+
+            "grantUrl":
+                data.grantUrl,
+
+            "safeToApply":
+                not requires_payment and not suspicious_detected,
+
+            "requiresPayment":
+                requires_payment,
+
+            "requiresLogin":
+                requires_login,
+
+            "captchaDetected":
+                captcha_detected,
+
+            "suspiciousWebsite":
+                suspicious_detected,
+
+            "message":
+                "Grant page scanned successfully"
+        }
 
     except Exception as e:
 
         return {
             "success": False,
-            "error": repr(e)
+            "error": str(e)
         }

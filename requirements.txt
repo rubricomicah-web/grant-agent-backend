@@ -4,5 +4,4 @@ openai
 requests
 beautifulsoup4
 ddgs
-playwright
 pydantic
