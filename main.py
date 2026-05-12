@@ -97,9 +97,15 @@ async def grant_search(data: GrantSearchRequest):
 
         queries = [
 
-            f"{data.businessType} small business grants {data.state}",
+            f"{data.businessType} grants {data.state}",
 
-            f"{data.businessType} funding programs {data.state}",
+            f"{data.businessType} small business grants California",
+
+            f"beauty salon grants California",
+
+            f"beauty business grants",
+
+            f"beauty industry funding programs",
 
             f"women owned business grants {data.state}"
             if str(data.womanOwned).lower() in ["true", "yes", "1"] else "",
@@ -110,7 +116,20 @@ async def grant_search(data: GrantSearchRequest):
             f"veteran owned business grants {data.state}"
             if str(data.veteranOwned).lower() in ["true", "yes", "1"] else "",
 
+            f"California women owned business grants",
+
+            f"small business expansion grants California",
+
+            f"equipment grants for salons",
+
+            f"workforce development grants beauty industry",
+
+            f"marketing grants for small businesses",
+
+            f"startup and expansion grants California",
+
             f"{data.keywords} grants {data.state}"
+
         ]
 
         queries = [q for q in queries if q]
@@ -164,7 +183,7 @@ async def grant_search(data: GrantSearchRequest):
                     results = list(
                         ddgs.text(
                             query,
-                            max_results=8
+                            max_results=15
                         )
                     )
 
@@ -229,10 +248,10 @@ async def grant_search(data: GrantSearchRequest):
 
                             recommendation = "REVIEW CAREFULLY"
 
-                            if score >= 90:
+                            if score >= 85:
                                 recommendation = "APPLY IMMEDIATELY"
 
-                            elif score >= 75:
+                            elif score >= 65:
                                 recommendation = "STRONG MATCH"
 
                             grants.append({
