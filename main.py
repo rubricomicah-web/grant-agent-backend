@@ -50,9 +50,10 @@ class GrantSearchRequest(BaseModel):
     businessType: str
     state: str
     keywords: str | None = ""
-    womanOwned: bool = False
-    minorityOwned: bool = False
-    veteranOwned: bool = False
+
+    womanOwned: str | None = ""
+    minorityOwned: str | None = ""
+    veteranOwned: str | None = ""
 
 
 class ProposalRequest(BaseModel):
@@ -101,13 +102,13 @@ async def grant_search(data: GrantSearchRequest):
             f"{data.businessType} funding programs {data.state}",
 
             f"women owned business grants {data.state}"
-            if data.womanOwned else "",
+            if str(data.womanOwned).lower() in ["true", "yes", "1"] else "",
 
             f"minority owned business grants {data.state}"
-            if data.minorityOwned else "",
+            if str(data.minorityOwned).lower() in ["true", "yes", "1"] else "",
 
             f"veteran owned business grants {data.state}"
-            if data.veteranOwned else "",
+            if str(data.veteranOwned).lower() in ["true", "yes", "1"] else "",
 
             f"{data.keywords} grants {data.state}"
         ]
@@ -222,9 +223,9 @@ async def grant_search(data: GrantSearchRequest):
                             if data.state.lower() in description_lower:
                                 score += 5
 
-                            if data.womanOwned:
-                                if "women" in description_lower:
-                                    score += 5
+                            if str(data.womanOwned).lower() in ["true", "yes", "1"]:
+                                  if "women" in description_lower:
+                                      score += 5
 
                             recommendation = "REVIEW CAREFULLY"
 
