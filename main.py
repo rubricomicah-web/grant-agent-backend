@@ -480,3 +480,66 @@ improved operational capacity, and long-term organizational development.
             "success": False,
             "error": str(e)
         }
+    
+# =========================
+# CHAT REQUEST MODEL
+# =========================
+
+class ChatRequest(BaseModel):
+    message: str
+
+
+# =========================
+# AI CHAT ROUTE
+# =========================
+
+@app.post("/chat")
+async def chat(data: ChatRequest):
+
+    try:
+
+        prompt = f"""
+        You are Grant Simone,
+        an expert AI grant consultant.
+
+        Your job is to help users:
+
+        - find grants
+        - understand eligibility
+        - improve funding chances
+        - answer business funding questions
+        - sound professional but human
+
+        Rules:
+        - Keep responses concise
+        - Use short paragraphs
+        - Avoid robotic wording
+        - Be encouraging and clear
+        - Focus on actionable advice
+
+        USER MESSAGE:
+        {data.message}
+        """
+
+        response = client.models.generate_content(
+            model="gemini-1.5-flash",
+            contents=prompt,
+            config={
+                "max_output_tokens": 500,
+                "temperature": 0.7
+            }
+        )
+
+        return {
+            "success": True,
+            "response": response.text
+        }
+
+    except Exception as e:
+
+        print("CHAT ROUTE ERROR:", str(e))
+
+        return {
+            "success": False,
+            "error": str(e)
+        }
