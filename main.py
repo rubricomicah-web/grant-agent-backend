@@ -84,7 +84,6 @@ async def health():
         "healthy": True
     }
 
-
 # =========================
 # GRANT SEARCH ROUTE
 # =========================
@@ -160,12 +159,16 @@ async def grant_search(data: GrantSearchRequest):
 
                 try:
 
+                    print(f"SEARCHING: {query}")
+
                     results = list(
                         ddgs.text(
                             query,
                             max_results=8
                         )
                     )
+
+                    print(f"FOUND {len(results)} RESULTS")
 
                     for r in results:
 
@@ -253,11 +256,19 @@ async def grant_search(data: GrantSearchRequest):
                                 "safeToApply": True
                             })
 
-                        except Exception:
-                            pass
+                        except Exception as e:
 
-                except Exception:
-                    pass
+                            print(
+                                "INNER SEARCH ERROR:",
+                                str(e)
+                            )
+
+                except Exception as e:
+
+                    print(
+                        "DDGS ERROR:",
+                        str(e)
+                    )
 
         grants = sorted(
             grants,
@@ -274,11 +285,12 @@ async def grant_search(data: GrantSearchRequest):
 
     except Exception as e:
 
+        print("GRANT SEARCH ROUTE ERROR:", str(e))
+
         return {
             "success": False,
             "error": str(e)
         }
-
 
 # =========================
 # PROPOSAL GENERATOR
