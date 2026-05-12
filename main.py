@@ -84,6 +84,7 @@ async def health():
         "healthy": True
     }
 
+
 # =========================
 # GRANT SEARCH ROUTE
 # =========================
@@ -159,16 +160,12 @@ async def grant_search(data: GrantSearchRequest):
 
                 try:
 
-                    print(f"SEARCHING: {query}")
-
                     results = list(
                         ddgs.text(
                             query,
                             max_results=8
                         )
                     )
-
-                    print(f"FOUND {len(results)} RESULTS")
 
                     for r in results:
 
@@ -256,19 +253,11 @@ async def grant_search(data: GrantSearchRequest):
                                 "safeToApply": True
                             })
 
-                        except Exception as e:
+                        except Exception:
+                            pass
 
-                            print(
-                                "INNER SEARCH ERROR:",
-                                str(e)
-                            )
-
-                except Exception as e:
-
-                    print(
-                        "DDGS ERROR:",
-                        str(e)
-                    )
+                except Exception:
+                    pass
 
         grants = sorted(
             grants,
@@ -285,12 +274,11 @@ async def grant_search(data: GrantSearchRequest):
 
     except Exception as e:
 
-        print("GRANT SEARCH ROUTE ERROR:", str(e))
-
         return {
             "success": False,
             "error": str(e)
         }
+
 
 # =========================
 # PROPOSAL GENERATOR
@@ -343,7 +331,7 @@ async def generate_proposal(data: ProposalRequest):
         try:
 
             response = client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-1.5-flash",
                 contents=prompt,
                 config={
                     "max_output_tokens": 700,
@@ -475,69 +463,6 @@ improved operational capacity, and long-term organizational development.
         }
 
     except Exception as e:
-
-        return {
-            "success": False,
-            "error": str(e)
-        }
-    
-# =========================
-# CHAT REQUEST MODEL
-# =========================
-
-class ChatRequest(BaseModel):
-    message: str
-
-
-# =========================
-# AI CHAT ROUTE
-# =========================
-
-@app.post("/chat")
-async def chat(data: ChatRequest):
-
-    try:
-
-        prompt = f"""
-        You are Grant Simone,
-        an expert AI grant consultant.
-
-        Your job is to help users:
-
-        - find grants
-        - understand eligibility
-        - improve funding chances
-        - answer business funding questions
-        - sound professional but human
-
-        Rules:
-        - Keep responses concise
-        - Use short paragraphs
-        - Avoid robotic wording
-        - Be encouraging and clear
-        - Focus on actionable advice
-
-        USER MESSAGE:
-        {data.message}
-        """
-
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt,
-            config={
-                "max_output_tokens": 500,
-                "temperature": 0.7
-            }
-        )
-
-        return {
-            "success": True,
-            "response": response.text
-        }
-
-    except Exception as e:
-
-        print("CHAT ROUTE ERROR:", str(e))
 
         return {
             "success": False,
