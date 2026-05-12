@@ -343,7 +343,7 @@ async def generate_proposal(data: ProposalRequest):
         try:
 
             response = client.models.generate_content(
-                model="gemini-1.5-flash",
+                model="gemini-2.0-flash",
                 contents=prompt,
                 config={
                     "max_output_tokens": 700,
@@ -522,7 +522,7 @@ async def chat(data: ChatRequest):
         """
 
         response = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.0-flash",
             contents=prompt,
             config={
                 "max_output_tokens": 500,
