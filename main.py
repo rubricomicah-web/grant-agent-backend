@@ -178,12 +178,15 @@ async def grant_search(data: GrantSearchRequest):
 
             for query in queries:
 
+                import time
+                time.sleep(1)
+
                 try:
 
                     results = list(
                         ddgs.text(
                             query,
-                            max_results=15
+                            max_results=8
                         )
                     )
 
