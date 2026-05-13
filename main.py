@@ -385,6 +385,25 @@ async def generate_proposal(data: ProposalRequest):
         Write like a premium consultant presentation.
 
         Keep sections concise and readable.
+  
+        At the beginning of the proposal, include this introduction:
+
+        "I've prepared a professionally structured grant proposal draft tailored to the grant opportunity, aligned with the business expansion goals, workforce development plans, and operational growth strategy.
+
+        This proposal framework is designed to provide a strong submission-ready foundation that can be further customized based on specific business goals, financial projections, community impact initiatives, and grant requirements.
+
+        For enhanced proposal refinement, strategic optimization, AI editing assistance, and advanced grant personalization, users may further improve this proposal using the FI Grant Plug or the You Are Granted Bot."
+
+        Keep paragraphs short.
+
+        Use clean spacing.
+
+        Avoid giant text walls.
+
+        Write like a premium consultant presentation.
+
+        Keep sections concise and readable.
+
         """
         response = client.models.generate_content(
             model="gemini-1.5-flash",
