@@ -7,7 +7,18 @@ from dotenv import load_dotenv
 from typing import Optional
 import os
 import time
-
+from fastapi.responses import FileResponse
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer
+)
+from reportlab.lib.styles import (
+    getSampleStyleSheet,
+    ParagraphStyle
+)
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
 # =========================
 # LOAD ENV
 # =========================
@@ -528,116 +539,269 @@ async def grant_search(data: GrantSearchRequest):
 # =========================
 # PROPOSAL GENERATOR
 # =========================
-
 last_request_time = 0
 
 @app.post("/generate-proposal")
 async def generate_proposal(data: ProposalRequest):
 
     global last_request_time
-
+    
     try:
-
+    
         current_time = time.time()
-
+    
         if current_time - last_request_time < 5:
-
+    
             return {
-
+    
                 "success": False,
-
+    
                 "error":
                 "Please wait before generating another proposal."
-
+    
             }
-
+    
         last_request_time = current_time
-
+    
         prompt = f"""
-
+    
         Create a PROFESSIONAL grant proposal.
-
+    
         IMPORTANT RULES:
-
+    
         - Make the proposal look HUMAN-WRITTEN
         - Make it detailed and persuasive
-        - Use clean formatting
-        - Wrap ALL section titles in double asterisks
-
+        - Avoid generic wording
+        - Use realistic business language
+    
         Business Name:
         {data.businessName or "Business"}
-
+    
         Industry:
         {data.businessType or "Business"}
-
+    
         Funding Purpose:
         {data.fundingPurpose or "Growth"}
-
+    
         Grant Program:
         {data.grantName or "Grant Opportunity"}
-
+    
         Requested Amount:
         {data.requestedAmount or "$50,000"}
-
+    
         Project Summary:
         {data.projectSummary or "Business growth and expansion"}
-
+    
         Timeline:
         {data.timeline or "12 months"}
-
+    
         Target Population:
         {data.targetPopulation or "Local communities"}
-
-        Use these EXACT sections:
-
-        **Executive Summary**
-        **Organization Overview**
-        **Statement of Need**
-        **Project Description**
-        **Use of Funds**
-        **Expected Impact**
-        **Sustainability Plan**
-        **Conclusion**
-
+    
+        Include these sections:
+    
+        Executive Summary
+        Organization Overview
+        Statement of Need
+        Project Description
+        Use of Funds
+        Expected Impact
+        Sustainability Plan
+        Conclusion
+    
         """
-
+    
         completion = client.chat.completions.create(
-
+    
             model="llama-3.3-70b-versatile",
-
+    
             messages=[
-
+    
                 {
-                    "role": "system",
-                    "content": "You are an expert grant proposal writer."
+                    "role":"system",
+                    "content":"You are a professional grant proposal writer."
                 },
-
+    
                 {
-                    "role": "user",
-                    "content": prompt
+                    "role":"user",
+                    "content":prompt
                 }
-
+    
             ],
-
+    
             temperature=0.7,
             max_tokens=2200
-
+    
         )
-
-        return {
-
-            "success": True,
-
-            "proposalNarrative":
-            completion.choices[0].message.content
-
-        }
-
+    
+        proposal_text = completion.choices[0].message.content
+    
+        # CLEAN TEXT
+    
+        proposal_text = proposal_text.replace("**","")
+    
+        # PDF FILE
+    
+        filename = "grant_proposal.pdf"
+    
+        doc = SimpleDocTemplate(
+    
+            filename,
+    
+            pagesize=letter,
+    
+            rightMargin=50,
+            leftMargin=50,
+            topMargin=50,
+            bottomMargin=50
+    
+        )
+    
+        # STYLES
+    
+        title_style = ParagraphStyle(
+    
+            'Title',
+    
+            fontName='Helvetica-Bold',
+    
+            fontSize=18,
+    
+            leading=22,
+    
+            textColor=colors.black,
+    
+            spaceAfter=18
+    
+        )
+    
+        body_style = ParagraphStyle(
+    
+            'Body',
+    
+            fontName='Helvetica',
+    
+            fontSize=11,
+    
+            leading=16,
+    
+            textColor=colors.black,
+    
+            spaceAfter=10
+    
+        )
+    
+        heading_style = ParagraphStyle(
+    
+            'Heading',
+    
+            fontName='Helvetica-Bold',
+    
+            fontSize=13,
+    
+            leading=18,
+    
+            textColor=colors.black,
+    
+            spaceBefore=12,
+    
+            spaceAfter=8
+    
+        )
+    
+        # BUILD STORY
+    
+        story = []
+    
+        business_name = data.businessName or "Business"
+    
+        story.append(
+    
+            Paragraph(
+    
+                f"{business_name} Grant Proposal",
+    
+                title_style
+    
+            )
+    
+        )
+    
+        story.append(Spacer(1,12))
+    
+        # FORMAT CONTENT
+    
+        lines = proposal_text.split("\n")
+    
+        headings = [
+    
+            "Executive Summary",
+            "Organization Overview",
+            "Statement of Need",
+            "Project Description",
+            "Use of Funds",
+            "Expected Impact",
+            "Sustainability Plan",
+            "Conclusion"
+    
+        ]
+    
+        for line in lines:
+    
+            line = line.strip()
+    
+            if not line:
+                continue
+    
+            if line in headings:
+    
+                story.append(
+    
+                    Paragraph(
+    
+                        line,
+    
+                        heading_style
+    
+                    )
+    
+                )
+    
+            else:
+    
+                story.append(
+    
+                    Paragraph(
+    
+                        line,
+    
+                        body_style
+    
+                    )
+    
+                )
+    
+        # BUILD PDF
+    
+        doc.build(story)
+    
+        # RETURN PDF
+    
+        return FileResponse(
+    
+            filename,
+    
+            media_type='application/pdf',
+    
+            filename=filename
+    
+        )
+    
     except Exception as e:
-
+    
         return {
-
+    
             "success": False,
             "error": str(e)
-
+    
         }
