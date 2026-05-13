@@ -29,7 +29,7 @@ client = Groq(
 app = FastAPI(
     title="Grant Simone API",
     description="AI-powered grant discovery and proposal generation platform",
-    version="5.0"
+    version="6.0"
 )
 
 # =========================
@@ -51,13 +51,14 @@ app.add_middleware(
 class GrantSearchRequest(BaseModel):
 
     businessType: str
-    state: str
+    state: Optional[str] = "USA"
 
     keywords: Optional[str] = ""
 
     womanOwned: Optional[str] = ""
     minorityOwned: Optional[str] = ""
     veteranOwned: Optional[str] = ""
+
     startup: Optional[str] = ""
     nonprofit: Optional[str] = ""
 
@@ -79,6 +80,7 @@ class ChatRequest(BaseModel):
 
     message: str
 
+
 # =========================
 # ROOT
 # =========================
@@ -88,13 +90,11 @@ async def root():
 
     return {
 
-        "message":
-        "Grant Simone Backend Running",
-
-        "status":
-        "success"
+        "message": "Grant Simone Backend Running",
+        "status": "success"
 
     }
+
 
 # =========================
 # HEALTH
@@ -108,6 +108,7 @@ async def health():
         "healthy": True
 
     }
+
 
 # =========================
 # CHAT AI
@@ -125,8 +126,8 @@ async def chat(req: ChatRequest):
             messages=[
 
                 {
-                    "role":"system",
-                    "content":"""
+                    "role": "system",
+                    "content": """
 
                     You are Grant Simone,
                     an AI grant funding consultant.
@@ -153,8 +154,8 @@ async def chat(req: ChatRequest):
                 },
 
                 {
-                    "role":"user",
-                    "content":req.message
+                    "role": "user",
+                    "content": req.message
                 }
 
             ],
@@ -166,49 +167,10 @@ async def chat(req: ChatRequest):
 
         return {
 
-    "success": True,
-
-    "grants":[
-
-        {
-
-            "title":"SBA Microloan Program",
-
-            "amount":"$50,000 Funding",
-
-            "description":"Small business funding for startups and salons.",
-
-            "link":"https://www.sba.gov"
-
-        },
-
-        {
-
-            "title":"Amber Grant",
-
-            "amount":"Women-Owned",
-
-            "description":"Monthly grants for women entrepreneurs.",
-
-            "link":"https://ambergrantsforwomen.com"
-
-        },
-
-        {
-
-            "title":"IFundWomen Grant",
-
-            "amount":"Startup Funding",
-
-            "description":"Funding opportunities for women-led startups and businesses.",
-
-            "link":"https://ifundwomen.com"
+            "success": True,
+            "response": completion.choices[0].message.content
 
         }
-
-    ]
-
-}
 
     except Exception as e:
 
@@ -218,6 +180,7 @@ async def chat(req: ChatRequest):
             "error": str(e)
 
         }
+
 
 # =========================
 # GRANT SEARCH
@@ -230,35 +193,61 @@ async def grant_search(data: GrantSearchRequest):
 
         queries = [
 
-            f"{data.businessType} grants {data.state}",
-            f"{data.businessType} funding opportunities {data.state}",
             f"{data.businessType} grants USA",
-            f"small business grants {data.state}",
-            f"startup grants {data.state}",
-            f"nonprofit grants {data.state}",
-            f"federal grants for businesses",
-            f"{data.keywords} grants {data.state}",
-            f"{data.keywords} funding opportunities"
+            f"{data.businessType} small business grants",
+            f"{data.businessType} startup funding",
+            f"{data.businessType} federal grants",
+            f"{data.businessType} grant program",
+            f"{data.businessType} entrepreneur grants",
+            f"{data.businessType} business funding"
 
         ]
 
-        if str(data.womanOwned).lower() in ["true","yes","1"]:
+        # KEYWORDS
+
+        if data.keywords:
+
+            queries.append(
+                f"{data.keywords} grants"
+            )
+
+            queries.append(
+                f"{data.keywords} funding"
+            )
+
+        # STATE SEARCHES
+
+        if data.state and data.state.lower() != "usa":
+
+            queries.extend([
+
+                f"{data.businessType} grants {data.state}",
+                f"{data.businessType} funding {data.state}",
+                f"{data.businessType} small business grants {data.state}"
+
+            ])
+
+        # OWNERSHIP FILTERS
+
+        if str(data.womanOwned).lower() in ["true", "yes", "1"]:
 
             queries.append(
                 f"women owned business grants {data.state}"
             )
 
-        if str(data.minorityOwned).lower() in ["true","yes","1"]:
+        if str(data.minorityOwned).lower() in ["true", "yes", "1"]:
 
             queries.append(
                 f"minority owned business grants {data.state}"
             )
 
-        if str(data.veteranOwned).lower() in ["true","yes","1"]:
+        if str(data.veteranOwned).lower() in ["true", "yes", "1"]:
 
             queries.append(
                 f"veteran owned business grants {data.state}"
             )
+
+        # TRUSTED DOMAINS
 
         REAL_DOMAINS = [
 
@@ -268,9 +257,28 @@ async def grant_search(data: GrantSearchRequest):
             "helloalice.com",
             "skip.com",
             "ifundwomen.com",
-            "lisc.org"
+            "lisc.org",
+            "fedex.com",
+            "nav.com",
+            "ambergrantsforwomen.com",
+            "comcastrisers.com",
+            "usda.gov",
+            "nist.gov",
+            "nsf.gov",
+            "eda.gov",
+            "mbda.gov",
+            "calosba.ca.gov",
+            "cdfifund.gov",
+            "grantwatch.com",
+            "foundationcenter.org",
+            "candid.org",
+            "grantfinder.com",
+            "economicdevelopment.gov",
+            "grantsforwomen.org"
 
         ]
+
+        # BAD RESULTS
 
         BAD_KEYWORDS = [
 
@@ -279,110 +287,230 @@ async def grant_search(data: GrantSearchRequest):
             "recipe",
             "tourism",
             "hotel",
-            "yelp"
+            "yelp",
+            "facebook",
+            "instagram",
+            "linkedin",
+            "youtube",
+            "reddit",
+            "wikipedia",
+            "news"
 
         ]
 
         grants = []
 
         seen = set()
+        seen_titles = set()
+
+        provider_count = {}
+
+        # SEARCH
 
         with DDGS() as ddgs:
 
             for query in queries:
 
-                time.sleep(1)
+                time.sleep(0.3)
 
                 try:
 
                     results = list(
                         ddgs.text(
                             query,
-                            max_results=8
+                            max_results=15
                         )
-                    )
+                    )[:15]
 
-                    for r in results:
+                except Exception as e:
 
-                        try:
+                    print("SEARCH ERROR:", e)
+                    continue
 
-                            url = r.get("href","")
-                            title = r.get("title","Grant")
-                            body = r.get("body","Grant opportunity")
+                for r in results:
 
-                            if not url:
-                                continue
+                    try:
 
-                            if url in seen:
-                                continue
+                        url = r.get("href", "")
+                        title = r.get("title", "Grant")
+                        body = r.get("body", "Grant opportunity")
 
-                            seen.add(url)
+                        if not url:
+                            continue
 
-                            url_lower = url.lower()
-                            title_lower = title.lower()
-                            body_lower = body.lower()
+                        clean_url = url.replace(
+                            "https://", ""
+                        ).replace(
+                            "http://", ""
+                        ).split("?")[0]
 
-                            if any(
-                                b in title_lower
-                                or b in body_lower
-                                for b in BAD_KEYWORDS
-                            ):
-                                continue
+                        if clean_url in seen:
+                            continue
 
-                            if not any(
-                                d in url_lower
-                                for d in REAL_DOMAINS
-                            ):
-                                continue
+                        seen.add(clean_url)
 
-                            score = 75
+                        url_lower = url.lower()
+                        title_lower = title.lower()
+                        body_lower = body.lower()
+
+                        if title_lower in seen_titles:
+                            continue
+
+                        seen_titles.add(title_lower)
+
+                        # BAD FILTER
+
+                        if any(
+                            b in title_lower or b in body_lower
+                            for b in BAD_KEYWORDS
+                        ):
+                            continue
+
+                        # TRUSTED DOMAINS
+
+                        if not any(
+                            d in url_lower
+                            for d in REAL_DOMAINS
+                        ):
+                            continue
+
+                        # PROVIDER LIMIT
+
+                        provider = clean_url.split("/")[0]
+
+                        if provider not in provider_count:
+                            provider_count[provider] = 0
+
+                        if provider_count[provider] >= 2:
+                            continue
+
+                        provider_count[provider] += 1
+
+                        # SCORING
+
+                        score = 0
+
+                        if "grant" in title_lower:
+                            score += 25
+
+                        if "funding" in body_lower:
+                            score += 10
+
+                        if data.businessType.lower() in body_lower:
+                            score += 20
+
+                        if data.businessType.lower() in title_lower:
+                            score += 20
+
+                        if ".gov" in url_lower or "grants" in url_lower:
+                            score += 20
+
+                        if "apply" in body_lower:
+                            score += 5
+
+                        if "eligibility" in body_lower:
+                            score += 5
+
+                        if "award" in body_lower:
+                            score += 5
+
+                        if "small business" in body_lower:
+                            score += 5
+
+                        if "closed" in body_lower:
+                            score -= 50
+
+                        if "expired" in body_lower:
+                            score -= 50
+
+                        if "deadline passed" in body_lower:
+                            score -= 50
+
+                        if data.state.lower() != "usa":
 
                             if data.state.lower() in body_lower:
-                                score += 5
-
-                            if "grant" in title_lower:
-                                score += 5
-
-                            if data.businessType.lower() in body_lower:
                                 score += 10
 
-                            recommendation = "STRONG MATCH"
+                        # MINIMUM SCORE
 
-                            if score >= 90:
-                                recommendation = "APPLY IMMEDIATELY"
+                        if score < 55:
+                            continue
 
-                            grants.append({
+                        # RECOMMENDATION
 
-                                "grantName": title,
+                        recommendation = "GOOD MATCH"
 
-                                "applicationUrl": url,
+                        if score >= 90:
+                            recommendation = "APPLY IMMEDIATELY"
 
-                                "description": body,
+                        elif score >= 75:
+                            recommendation = "HIGH MATCH"
 
-                                "matchScore": score,
+                        elif score >= 60:
+                            recommendation = "GOOD MATCH"
 
-                                "recommendation": recommendation
+                        else:
+                            recommendation = "LOW MATCH"
 
-                            })
+                        # SAVE
 
-                        except:
-                            pass
+                        grants.append({
 
-                except:
-                    pass
+                            "grantName": title,
+                            "provider": provider,
+                            "applicationUrl": url,
+                            "description": body,
+                            "deadline": "Check official website",
+                            "fundingAmount": "Varies",
+                            "eligibility": data.businessType,
+                            "grantType": "Business Grant",
+                            "source": "Real-time web search",
+                            "status": "ACTIVE",
+                            "matchScore": score,
+                            "recommendation": recommendation
+
+                        })
+
+                    except Exception as e:
+
+                        print("INNER ERROR:", e)
+
+        # SORT RESULTS
 
         grants = sorted(
+
             grants,
-            key=lambda x: x["matchScore"],
+
+            key=lambda x: (
+
+                x["matchScore"],
+                ".gov" in x["applicationUrl"]
+
+            ),
+
             reverse=True
+
         )
+
+        # EMPTY RESULTS
+
+        if len(grants) == 0:
+
+            return {
+
+                "success": True,
+                "totalFound": 0,
+                "message": "No matching grants found.",
+                "grants": []
+
+            }
+
+        # SUCCESS
 
         return {
 
             "success": True,
-
             "totalFound": len(grants),
-
             "grants": grants[:10]
 
         }
@@ -395,6 +523,7 @@ async def grant_search(data: GrantSearchRequest):
             "error": str(e)
 
         }
+
 
 # =========================
 # PROPOSAL GENERATOR
@@ -426,83 +555,51 @@ async def generate_proposal(data: ProposalRequest):
 
         prompt = f"""
 
-            Create a PROFESSIONAL grant proposal.
+        Create a PROFESSIONAL grant proposal.
 
-            IMPORTANT RULES:
+        IMPORTANT RULES:
 
-            - Make the proposal look HUMAN-WRITTEN
+        - Make the proposal look HUMAN-WRITTEN
+        - Make it detailed and persuasive
+        - Use clean formatting
+        - Wrap ALL section titles in double asterisks
 
-            - Make it detailed and persuasive
+        Business Name:
+        {data.businessName or "Business"}
 
-            - Use clean formatting
+        Industry:
+        {data.businessType or "Business"}
 
-            - Wrap ALL section titles in double asterisks
+        Funding Purpose:
+        {data.fundingPurpose or "Growth"}
 
-            Example:
+        Grant Program:
+        {data.grantName or "Grant Opportunity"}
 
-            **Executive Summary**
+        Requested Amount:
+        {data.requestedAmount or "$50,000"}
 
-            Do NOT use bullet spam.
+        Project Summary:
+        {data.projectSummary or "Business growth and expansion"}
 
-            Do NOT use markdown lists unless necessary.
+        Timeline:
+        {data.timeline or "12 months"}
 
-            Do NOT use robotic AI wording.
+        Target Population:
+        {data.targetPopulation or "Local communities"}
 
-            Business Name:
+        Use these EXACT sections:
 
-            {data.businessName or "Business"}
+        **Executive Summary**
+        **Organization Overview**
+        **Statement of Need**
+        **Project Description**
+        **Use of Funds**
+        **Expected Impact**
+        **Sustainability Plan**
+        **Conclusion**
 
-            Industry:
-
-            {data.businessType or "Business"}
-
-            Funding Purpose:
-
-            {data.fundingPurpose or "Growth"}
-
-            Grant Program:
-
-            {data.grantName or "Grant Opportunity"}
-
-            Requested Amount:
-                                                            
-            {data.requestedAmount or "$50,000"}
-                                                            
-            Project Summary:
-
-            {data.projectSummary or "Business growth and expansion"}
-            
-            Timeline:
-            
-            {data.timeline or "12 months"}
-            
-            Target Population:
-            
-            {data.targetPopulation or "Local communities"}
-            
-            Use these EXACT sections:
-            
-            **Executive Summary**
-            
-            **Organization Overview**
-            
-            **Statement of Need**
-            
-            **Project Description**
-            
-            **Use of Funds**
-            
-            **Expected Impact**
-            
-            **Sustainability Plan**
-            
-            **Conclusion**
-            
-            Make every section detailed, realistic, and premium-quality.
-            
-            The proposal should feel like a real grant writer created it.
-            
-            """
+        """
 
         completion = client.chat.completions.create(
 
@@ -511,13 +608,13 @@ async def generate_proposal(data: ProposalRequest):
             messages=[
 
                 {
-                    "role":"system",
-                    "content":"You are an expert grant proposal writer."
+                    "role": "system",
+                    "content": "You are an expert grant proposal writer."
                 },
 
                 {
-                    "role":"user",
-                    "content":prompt
+                    "role": "user",
+                    "content": prompt
                 }
 
             ],
