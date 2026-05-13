@@ -159,8 +159,8 @@ async def chat(req: ChatRequest):
 
             ],
 
-            temperature=0.7,
-            max_tokens=400
+            temperature=0.9,
+            max_tokens=2200
 
         )
 
@@ -523,7 +523,7 @@ async def generate_proposal(data: ProposalRequest):
             ],
 
             temperature=0.7,
-            max_tokens=900
+            max_tokens=2200
 
         )
 
