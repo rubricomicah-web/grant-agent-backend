@@ -29,7 +29,7 @@ client = genai.Client(
 app = FastAPI(
     title="Grant Simone API",
     description="AI-powered grant discovery and proposal generation platform",
-    version="3.0"
+    version="4.0"
 )
 
 # =========================
@@ -355,15 +355,11 @@ async def generate_proposal(data: ProposalRequest):
         Target Population:
         {data.targetPopulation or "Local communities and underserved populations"}
 
-        The proposal must include:
+        The proposal must include only:
 
         Executive Summary
-        Business Overview
-        Statement of Need
-        Project Description
-        Implementation Plan
-        Expected Outcomes
-        Budget Justification
+        Project Overview
+        Funding Purpose
         Community Impact
         Conclusion
 
@@ -376,19 +372,9 @@ async def generate_proposal(data: ProposalRequest):
         human-like
         non-repetitive
 
-        Keep paragraphs short.
-
-        Use clean spacing.
-
-        Avoid giant text walls.
-
-        Write like a premium consultant presentation.
-
-        Keep sections concise and readable.
-  
         At the beginning of the proposal, include this introduction:
 
-        "I've prepared a professionally structured grant proposal draft tailored to the grant opportunity, aligned with the business expansion goals, workforce development plans, and operational growth strategy.
+        "I’ve prepared a professionally structured grant proposal draft tailored to the grant opportunity, aligned with the business expansion goals, workforce development plans, and operational growth strategy.
 
         This proposal framework is designed to provide a strong submission-ready foundation that can be further customized based on specific business goals, financial projections, community impact initiatives, and grant requirements.
 
@@ -404,12 +390,18 @@ async def generate_proposal(data: ProposalRequest):
 
         Keep sections concise and readable.
 
+        Keep proposal under 700 words.
+
+        Avoid overly detailed sections.
+
+        Keep responses concise and fast to generate.
         """
+
         response = client.models.generate_content(
             model="gemini-1.5-flash",
             contents=prompt,
             config={
-                "max_output_tokens": 900,
+                "max_output_tokens": 650,
                 "temperature": 0.7
             }
         )
