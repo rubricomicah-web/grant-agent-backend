@@ -375,13 +375,22 @@ async def generate_proposal(data: ProposalRequest):
         submission-ready
         human-like
         non-repetitive
-        """
 
+        Keep paragraphs short.
+
+        Use clean spacing.
+
+        Avoid giant text walls.
+
+        Write like a premium consultant presentation.
+
+        Keep sections concise and readable.
+        """
         response = client.models.generate_content(
             model="gemini-1.5-flash",
             contents=prompt,
             config={
-                "max_output_tokens": 1400,
+                "max_output_tokens": 900,
                 "temperature": 0.7
             }
         )
