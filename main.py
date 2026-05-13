@@ -426,48 +426,83 @@ async def generate_proposal(data: ProposalRequest):
 
         prompt = f"""
 
-        Write a professional grant proposal.
+            Create a PROFESSIONAL grant proposal.
 
-        Business Name:
-        {data.businessName or "Business"}
+            IMPORTANT RULES:
 
-        Industry:
-        {data.businessType or "Business"}
+            - Make the proposal look HUMAN-WRITTEN
 
-        Funding Purpose:
-        {data.fundingPurpose or "Growth"}
+            - Make it detailed and persuasive
 
-        Grant Program:
-        {data.grantName or "Grant Opportunity"}
+            - Use clean formatting
 
-        Requested Amount:
-        {data.requestedAmount or "$50,000"}
+            - Wrap ALL section titles in double asterisks
 
-        Project Summary:
-        {data.projectSummary or "Business growth and expansion"}
+            Example:
 
-        Timeline:
-        {data.timeline or "12 months"}
+            **Executive Summary**
 
-        Target Population:
-        {data.targetPopulation or "Local communities"}
+            Do NOT use bullet spam.
 
-        Include:
+            Do NOT use markdown lists unless necessary.
 
-        Executive Summary
-        Project Overview
-        Funding Purpose
-        Community Impact
-        Conclusion
+            Do NOT use robotic AI wording.
 
-        Keep proposal:
-        concise
-        persuasive
-        professional
-        premium-quality
-        submission-ready
+            Business Name:
 
-        """
+            {data.businessName or "Business"}
+
+            Industry:
+
+            {data.businessType or "Business"}
+
+            Funding Purpose:
+
+            {data.fundingPurpose or "Growth"}
+
+            Grant Program:
+
+            {data.grantName or "Grant Opportunity"}
+
+            Requested Amount:
+                                                            
+            {data.requestedAmount or "$50,000"}
+                                                            
+            Project Summary:
+
+            {data.projectSummary or "Business growth and expansion"}
+            
+            Timeline:
+            
+            {data.timeline or "12 months"}
+            
+            Target Population:
+            
+            {data.targetPopulation or "Local communities"}
+            
+            Use these EXACT sections:
+            
+            **Executive Summary**
+            
+            **Organization Overview**
+            
+            **Statement of Need**
+            
+            **Project Description**
+            
+            **Use of Funds**
+            
+            **Expected Impact**
+            
+            **Sustainability Plan**
+            
+            **Conclusion**
+            
+            Make every section detailed, realistic, and premium-quality.
+            
+            The proposal should feel like a real grant writer created it.
+            
+            """
 
         completion = client.chat.completions.create(
 
