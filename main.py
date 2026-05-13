@@ -166,12 +166,49 @@ async def chat(req: ChatRequest):
 
         return {
 
-            "success": True,
+    "success": True,
 
-            "response":
-            completion.choices[0].message.content
+    "grants":[
+
+        {
+
+            "title":"SBA Microloan Program",
+
+            "amount":"$50,000 Funding",
+
+            "description":"Small business funding for startups and salons.",
+
+            "link":"https://www.sba.gov"
+
+        },
+
+        {
+
+            "title":"Amber Grant",
+
+            "amount":"Women-Owned",
+
+            "description":"Monthly grants for women entrepreneurs.",
+
+            "link":"https://ambergrantsforwomen.com"
+
+        },
+
+        {
+
+            "title":"IFundWomen Grant",
+
+            "amount":"Startup Funding",
+
+            "description":"Funding opportunities for women-led startups and businesses.",
+
+            "link":"https://ifundwomen.com"
 
         }
+
+    ]
+
+}
 
     except Exception as e:
 
