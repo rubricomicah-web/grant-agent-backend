@@ -1,5 +1,6 @@
 fastapi
 uvicorn
-ddgs
+groq
 python-dotenv
-google-genai
+ddgs
+pydantic
