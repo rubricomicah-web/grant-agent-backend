@@ -6,7 +6,7 @@ from groq import Groq
 from dotenv import load_dotenv
 from typing import Optional
 import os
-import 
+import time
 
 # =========================
 # LOAD ENV
