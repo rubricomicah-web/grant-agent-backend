@@ -212,16 +212,15 @@ async def grant_search(data: GrantSearchRequest):
 
     try:
 
-        queries = [
-
-            f"{data.businessType} grants USA",
-            f"{data.businessType} small business grants",
-            f"{data.businessType} startup funding",
-            f"{data.businessType} federal grants",
-            f"{data.businessType} grant program",
-            f"{data.businessType} entrepreneur grants",
-            f"{data.businessType} business funding"
-
+       queries = [
+            f"{data.businessType} {data.state} grants 2026 open application",
+            f"{data.businessType} {data.state} small business grants 2026",
+            f"{data.businessType} {data.state} startup funding 2026",
+            f"{data.businessType} federal grants 2026",
+            f"{data.businessType} entrepreneur grants 2026",
+            f"{data.businessType} business funding 2026",
+            f"{data.businessType} government grants 2026"
+            
         ]
 
         # KEYWORDS
@@ -406,6 +405,32 @@ async def grant_search(data: GrantSearchRequest):
 
                         body_lower = body.lower()
 
+                        # REMOVE OLD / EXPIRED GRANTS
+
+                        if any(
+                            old_year in body_lower or old_year in title_lower
+                            for old_year in [
+                                "2020",
+                                "2021",
+                                "2022",
+                                "2023",
+                                "2024"
+                            ]
+                        ):
+                            continue
+
+                        if "closed" in body_lower:
+                            continue
+
+                        if "expired" in body_lower:
+                            continue
+
+                        if "deadline passed" in body_lower:
+                            continue
+
+                        if "past deadline" in body_lower:
+                            continue
+
                         # NORMALIZE TITLE
                         normalized_title = " ".join(
                            title_lower
@@ -481,9 +506,11 @@ async def grant_search(data: GrantSearchRequest):
                         if "$" in str(body):
                             score += 10
                        
-                        if "2025" in body_lower or "2026" in body_lower:
-                           score += 10
-                            
+                        if "2026" in body_lower:
+                            score += 20
+
+                        elif "2025" in body_lower:
+                            score += 5
                         if "small business" in body_lower:
                             score += 5
 
