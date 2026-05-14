@@ -212,15 +212,24 @@ async def grant_search(data: GrantSearchRequest):
 
     try:
 
+       state = data.state if data.state else "USA"
+
        queries = [
-            f"{data.businessType} {data.state} grants 2026 open application",
-            f"{data.businessType} {data.state} small business grants 2026",
-            f"{data.businessType} {data.state} startup funding 2026",
+
+            f"{data.businessType} {state} grants 2026 open application",
+
+            f"{data.businessType} {state} small business grants 2026",
+
+            f"{data.businessType} {state} startup funding 2026",
+
             f"{data.businessType} federal grants 2026",
+
             f"{data.businessType} entrepreneur grants 2026",
+
             f"{data.businessType} business funding 2026",
+
             f"{data.businessType} government grants 2026"
-            
+
         ]
 
         # KEYWORDS
