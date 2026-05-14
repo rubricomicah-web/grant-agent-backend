@@ -212,26 +212,24 @@ async def grant_search(data: GrantSearchRequest):
 
     try:
 
-       state = data.state if data.state else "USA"
+       business_type = getattr(data, "businessType", "business")
+       state = getattr(data, "state", "USA") or "USA"
 
        queries = [
+            f"{business_type} {state} grants 2026 open application",
+            f"{business_type} {state} small business grants 2026",
+            f"{business_type} {state} startup funding 2026",
+            f"{business_type} federal grants 2026",
+            f"{business_type} entrepreneur grants 2026",
+            f"{business_type} business funding 2026",
+            f"{business_type} government grants 2026"
+       ]
 
-            f"{data.businessType} {state} grants 2026 open application",
-
-            f"{data.businessType} {state} small business grants 2026",
-
-            f"{data.businessType} {state} startup funding 2026",
-
-            f"{data.businessType} federal grants 2026",
-
-            f"{data.businessType} entrepreneur grants 2026",
-
-            f"{data.businessType} business funding 2026",
-
-            f"{data.businessType} government grants 2026"
-
-        ]
-
+       if getattr(data, "keywords", None):
+            queries.extend([
+                f"{data.keywords} grants",
+                f"{data.keywords} funding"
+            ])
         # KEYWORDS
 
         if data.keywords:
