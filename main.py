@@ -312,11 +312,8 @@ async def grant_search(data: GrantSearchRequest):
             "calosba.ca.gov",
             "cdfifund.gov",
             "grantwatch.com",
-            "foundationcenter.org",
             "candid.org",
-            "grantfinder.com",
             "economicdevelopment.gov",
-            "grantsforwomen.org"
 
         ]
 
@@ -384,7 +381,7 @@ async def grant_search(data: GrantSearchRequest):
 
                         url = r.get("href", "")
                         title = r.get("title", "Grant")
-                        body = r.get("body", "Grant opportunity")
+                        body = r.get("body") or "Grant funding opportunity"
 
                         if not url:
                             continue
@@ -430,14 +427,6 @@ async def grant_search(data: GrantSearchRequest):
                         ):
                             continue
 
-                        # TRUSTED DOMAINS
-
-                        if not any(
-                            d in url_lower
-                            for d in REAL_DOMAINS
-                        ):
-                            continue
-
                         # PROVIDER LIMIT
 
                         provider = clean_url.split("/")[0]
@@ -453,7 +442,17 @@ async def grant_search(data: GrantSearchRequest):
                         # SCORING
 
                         score = 0
+                        # TRUSTED DOMAINS PRIORITY
 
+                        trusted = any(
+                            d in url_lower
+                            for d in REAL_DOMAINS
+                        )
+
+                        if trusted:
+                            score += 25
+                        else:
+                            score -= 5
                         if "grant" in title_lower:
                             score += 25
 
@@ -462,10 +461,10 @@ async def grant_search(data: GrantSearchRequest):
                         
                         business_words = data.businessType.lower().split()
 
-                        if data.businessType and data.businessType.lower() in body_lower:
+                        if any(word in body_lower for word in business_words):
                             score += 20
 
-                        if data.businessType and data.businessType.lower() in title_lower:
+                        if any(word in title_lower for word in business_words):
                             score += 20
 
                         if ".gov" in url_lower or "grants" in url_lower:
@@ -483,8 +482,10 @@ async def grant_search(data: GrantSearchRequest):
                         if "$" in str(body):
                             score += 10
                        
-                        if "2025" in body_lower or "2026" in body_lower:
-                           score += 10
+                        current_year = str(time.localtime().tm_year)
+
+                        if current_year in body_lower or current_year in title_lower:
+                            score += 15
                             
                         if "small business" in body_lower:
                             score += 5
@@ -519,7 +520,7 @@ async def grant_search(data: GrantSearchRequest):
 
                         # MINIMUM SCORE
 
-                        if score < 30:
+                        if score < 20:
                             continue
 
                         # RECOMMENDATION
