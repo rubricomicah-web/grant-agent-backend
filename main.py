@@ -39,7 +39,7 @@ load_dotenv()
 # =========================
 
 client = Groq(
-   api_key=os.getenv("GROQ_API_KEY")
+    api_key=os.getenv("GROQ_API_KEY")
 )
 
 # =========================
@@ -96,6 +96,7 @@ class ProposalRequest(BaseModel):
     projectSummary: str = ""
     timeline: str = ""
     targetPopulation: str = ""
+
 
 class ChatRequest(BaseModel):
 
@@ -214,17 +215,12 @@ async def grant_search(data: GrantSearchRequest):
 
         queries = [
 
-            f"{data.businessType} grants USA",
-            f"{data.businessType} small business grants",
-            f"{data.businessType} startup funding",
-            f"{data.businessType} federal grants",
-            f"{data.businessType} grant program",
-            f"{data.businessType} entrepreneur grants",
-            f"{data.businessType} business funding"
+            f"{data.businessType} grants",
+            f"{data.businessType} grants {data.state}",
+            f"site:grants.gov {data.businessType}",
+            f"site:sba.gov {data.businessType}"
 
         ]
-
-        # KEYWORDS
 
         if data.keywords:
 
@@ -235,61 +231,6 @@ async def grant_search(data: GrantSearchRequest):
             queries.append(
                 f"{data.keywords} funding"
             )
-
-        # STATE SEARCHES
-
-        if data.state and data.state.strip().lower() != "usa":
-            
-            queries.extend([
-
-                f"{data.businessType} grants {data.state}",
-                f"{data.businessType} funding {data.state}",
-                f"{data.businessType} startup grants in {data.state}",
-                f"{data.businessType} small business grants {data.state}"
-
-            ])
-
-        # OWNERSHIP FILTERS
-
-        if str(data.womanOwned).lower() in ["true", "yes", "1"]:
-
-            queries.append(
-                f"women owned business grants {data.state}"
-            )
-
-        if str(data.minorityOwned).lower() in ["true", "yes", "1"]:
-
-            queries.append(
-                f"minority owned business grants {data.state}"
-            )
-
-        if str(data.veteranOwned).lower() in ["true", "yes", "1"]:
-
-            queries.append(
-                f"veteran owned business grants {data.state}"
-            )
-
-        # NONPROFIT FILTER
-
-        if str(data.nonprofit).lower() in ["true", "yes", "1"]:
-
-            queries.append(
-                f"{data.businessType} nonprofit grants {data.state}"
-            )
-
-        # STARTUP FILTER
-
-        if str(data.startup).lower() in ["true", "yes", "1"]:
-
-            queries.append(
-                f"{data.businessType} startup accelerator funding {data.state}"
-            )
-
-            queries.append(
-                f"{data.businessType} seed funding {data.state}"
-            )
-
-        # TRUSTED DOMAINS
 
         REAL_DOMAINS = [
 
@@ -312,17 +253,13 @@ async def grant_search(data: GrantSearchRequest):
             "calosba.ca.gov",
             "cdfifund.gov",
             "grantwatch.com",
-            "candid.org",
-            "economicdevelopment.gov",
+            "candid.org"
 
         ]
-
-        # BAD RESULTS
 
         BAD_KEYWORDS = [
 
             "tripadvisor",
-            "restaurant menu",
             "recipe",
             "tourism",
             "hotel",
@@ -334,8 +271,6 @@ async def grant_search(data: GrantSearchRequest):
             "reddit",
             "wikipedia",
             "news",
-
-            "event",
             "conference",
             "seminar",
             "scholarship",
@@ -352,9 +287,6 @@ async def grant_search(data: GrantSearchRequest):
 
         provider_count = {}
 
-        # SEARCH
-        
-        # REMOVE DUPLICATE QUERIES
         queries = list(set(queries))
 
         with DDGS(timeout=20) as ddgs:
@@ -366,7 +298,7 @@ async def grant_search(data: GrantSearchRequest):
                     results = list(
                         ddgs.text(
                             query,
-                            max_results=12
+                            max_results=5
                         )
                     )
 
@@ -376,6 +308,9 @@ async def grant_search(data: GrantSearchRequest):
                     continue
 
                 for r in results:
+
+                    if len(grants) >= 10:
+                        break
 
                     try:
 
@@ -398,36 +333,43 @@ async def grant_search(data: GrantSearchRequest):
                         seen.add(clean_url)
 
                         url_lower = url.lower()
-
                         title_lower = title.lower()
-
                         body_lower = body.lower()
 
-                        # NORMALIZE TITLE
+                        grant_keywords = [
+                            "grant",
+                            "funding",
+                            "loan",
+                            "capital",
+                            "award"
+                        ]
+
+                        if not any(
+                            k in title_lower
+                            for k in grant_keywords
+                        ):
+                            continue
+
                         normalized_title = " ".join(
-                           title_lower
-                           .replace("-", "")
-                           .replace("|", "")
-                           .replace(":", "")
-                           .replace(",", "")
-                           .replace(".", "")
-                           .split()
+                            title_lower
+                            .replace("-", "")
+                            .replace("|", "")
+                            .replace(":", "")
+                            .replace(",", "")
+                            .replace(".", "")
+                            .split()
                         )
 
-                        # DEDUPLICATE SIMILAR TITLES
                         if normalized_title in seen_titles:
                             continue
+
                         seen_titles.add(normalized_title)
-                        
-                        # BAD FILTER
 
                         if any(
                             b in title_lower or b in body_lower
                             for b in BAD_KEYWORDS
                         ):
                             continue
-
-                        # PROVIDER LIMIT
 
                         provider = clean_url.split("/")[0]
 
@@ -439,10 +381,7 @@ async def grant_search(data: GrantSearchRequest):
 
                         provider_count[provider] += 1
 
-                        # SCORING
-
                         score = 0
-                        # TRUSTED DOMAINS PRIORITY
 
                         trusted = any(
                             d in url_lower
@@ -453,12 +392,13 @@ async def grant_search(data: GrantSearchRequest):
                             score += 25
                         else:
                             score -= 5
+
                         if "grant" in title_lower:
                             score += 25
 
                         if "funding" in body_lower:
                             score += 10
-                        
+
                         business_words = data.businessType.lower().split()
 
                         if any(word in body_lower for word in business_words):
@@ -481,14 +421,14 @@ async def grant_search(data: GrantSearchRequest):
 
                         if "$" in str(body):
                             score += 10
-                       
+
                         current_year = str(time.localtime().tm_year)
 
-                        if current_year in body_lower or current_year in title_lower:
+                        if (
+                            current_year in body_lower
+                            or current_year in title_lower
+                        ):
                             score += 15
-                            
-                        if "small business" in body_lower:
-                            score += 5
 
                         if "closed" in body_lower:
                             score -= 50
@@ -496,34 +436,8 @@ async def grant_search(data: GrantSearchRequest):
                         if "expired" in body_lower:
                             score -= 50
 
-                        if "deadline passed" in body_lower:
-                            score -= 50
-                            
-                        if "2021" in body_lower or "2022" in body_lower:
-                            score -= 20
-                            
-                        # STATE PRIORITY
-
-                        if data.state.strip().lower() != "usa":
-
-                            if (
-                                data.state.lower() in body_lower
-                                or data.state.lower() in title_lower
-                                or data.state.lower() in url_lower
-                            ):
-
-                                score += 35
-
-                            else:
-
-                                score -= 10
-
-                        # MINIMUM SCORE
-
                         if score < 20:
                             continue
-
-                        # RECOMMENDATION
 
                         recommendation = "GOOD MATCH"
 
@@ -539,8 +453,6 @@ async def grant_search(data: GrantSearchRequest):
                         else:
                             recommendation = "LOW MATCH"
 
-                        # SAVE
-
                         grants.append({
 
                             "grantName": title,
@@ -553,7 +465,7 @@ async def grant_search(data: GrantSearchRequest):
                             "grantType": "Business Grant",
                             "source": "Real-time web search",
                             "status": "ACTIVE",
-                            "matchScore": score,
+                            "matchScore": min(score, 100),
                             "recommendation": recommendation
 
                         })
@@ -562,86 +474,21 @@ async def grant_search(data: GrantSearchRequest):
 
                         print("INNER ERROR:", e)
 
-        # PRIORITIZE STATE RESULTS
+                if len(grants) >= 10:
+                    break
 
-        if data.state.strip().lower() != "usa":
-            
-            state_grants = []
-            other_grants = []
+        grants = sorted(
 
-            for g in grants:
+            grants,
 
-                text_blob = (
-                    g["grantName"] +
-                    g["description"] +
-                    g["applicationUrl"]
-                ).lower()
+            key=lambda x: (
+                x["matchScore"],
+                ".gov" in x["applicationUrl"]
+            ),
 
-                if data.state.strip().lower() in text_blob:
+            reverse=True
 
-                    state_grants.append(g)
-
-                else:
-
-                    other_grants.append(g)
-
-            state_grants = sorted(
-
-                state_grants,
-
-                key=lambda x: (
-                    x["matchScore"],
-                    ".gov" in x["applicationUrl"]
-                ),
-
-                reverse=True
-
-            )
-
-            other_grants = sorted(
-
-                other_grants,
-
-                key=lambda x: (
-                    x["matchScore"],
-                    ".gov" in x["applicationUrl"]
-                ),
-
-                reverse=True
-
-            )
-
-            grants = state_grants + other_grants
-
-        else:
-
-            grants = sorted(
-
-                grants,
-
-                key=lambda x: (
-                    x["matchScore"],
-                    ".gov" in x["applicationUrl"]
-                ),
-
-                reverse=True
-
-            )
-
-        # EMPTY RESULTS
-
-        if len(grants) == 0:
-
-            return {
-
-                "success": True,
-                "totalFound": 0,
-                "message": "No matching grants found.",
-                "grants": []
-
-            }
-
-        # SUCCESS
+        )
 
         return {
 
@@ -659,6 +506,7 @@ async def grant_search(data: GrantSearchRequest):
             "error": str(e)
 
         }
+
 
 # =========================
 # RATE LIMITER
@@ -679,299 +527,8 @@ async def rate_limit_handler(request, exc):
         content={
 
             "success": False,
-            "error": "Rate limit exceeded. Please wait before generating another proposal."
+            "error": "Rate limit exceeded."
 
         }
 
     )
-
-# =========================
-# PROPOSAL GENERATOR
-# =========================
-
-@app.post("/generate-proposal")
-@limiter.limit("3/minute")
-async def generate_proposal(
-    request: Request,
-    data: ProposalRequest
-):
-
-    try:
-
-        prompt = f"""
-
-        Create a PROFESSIONAL grant proposal.
-
-        IMPORTANT RULES:
-
-        - Make the proposal look HUMAN-WRITTEN
-        - Make it detailed and persuasive
-        - Avoid generic wording
-        - Use realistic business language
-
-        Business Name:
-        {data.businessName or "Business"}
-
-        Owner Name:
-        {data.ownerName or "Business Owner"}
-
-        Years In Business:
-        {data.businessYears or "1"}
-
-        Industry:
-        {data.businessType or "Business"}
-
-        Funding Purpose:
-        {data.fundingPurpose or "Growth"}
-
-        Grant Program:
-        {data.grantName or "Grant Opportunity"}
-
-        Requested Amount:
-        {data.requestedAmount or "$50,000"}
-
-        Project Summary:
-        {data.projectSummary or "Business growth and expansion"}
-
-        Timeline:
-        {data.timeline or "12 months"}
-
-        Target Population:
-        {data.targetPopulation or "Local communities"}
-
-        Include these sections:
-
-        Executive Summary
-        Organization Overview
-        Statement of Need
-        Project Description
-        Use of Funds
-        Expected Impact
-        Sustainability Plan
-        Conclusion
-
-        """
-
-        completion = client.chat.completions.create(
-
-            model="llama-3.3-70b-versatile",
-
-            messages=[
-
-                {
-                    "role": "system",
-                    "content": "You are a professional grant proposal writer."
-                },
-
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-
-            ],
-
-            temperature=0.7,
-            max_tokens=2200
-
-        )
-
-        proposal_text = completion.choices[0].message.content
-
-        # CLEAN TEXT
-
-        proposal_text = proposal_text.replace("**", "")
-
-        # PDF FILE
-
-        business_name = data.businessName or "Business"
-
-        filename = os.path.abspath(
-            f"{business_name.replace(' ', '_')}_proposal.pdf"
-        )
-
-        doc = SimpleDocTemplate(
-
-            filename,
-
-            pagesize=letter,
-
-            rightMargin=50,
-            leftMargin=50,
-            topMargin=50,
-            bottomMargin=50
-
-        )
-
-        # STYLES
-
-        title_style = ParagraphStyle(
-
-            'Title',
-
-            fontName='Helvetica-Bold',
-
-            fontSize=18,
-
-            leading=22,
-
-            textColor=colors.black,
-
-            spaceAfter=18
-
-        )
-
-        body_style = ParagraphStyle(
-
-            'Body',
-
-            fontName='Helvetica',
-
-            fontSize=11,
-
-            leading=16,
-
-            textColor=colors.black,
-
-            spaceAfter=10
-
-        )
-
-        heading_style = ParagraphStyle(
-
-            'Heading',
-
-            fontName='Helvetica-Bold',
-
-            fontSize=13,
-
-            leading=18,
-
-            textColor=colors.black,
-
-            spaceBefore=12,
-
-            spaceAfter=8
-
-        )
-
-        # BUILD STORY
-
-        story = []
-
-        story.append(
-
-            Paragraph(
-
-                f"{business_name} Grant Proposal",
-
-                title_style
-
-            )
-
-        )
-
-        story.append(Spacer(1, 12))
-
-        story.append(
-
-            Paragraph(
-
-                f"""
-
-                <b>Owner:</b> {data.ownerName or "N/A"}<br/>
-
-                <b>Years in Business:</b> {data.businessYears or "N/A"}<br/>
-
-                <b>Business Type:</b> {data.businessType or "N/A"}<br/>
-
-                <b>Requested Amount:</b> {data.requestedAmount or "N/A"}
-
-                """,
-
-                body_style
-
-            )
-
-        )
-
-        story.append(Spacer(1, 18))
-
-        # FORMAT CONTENT
-
-        lines = proposal_text.split("\n")
-
-        headings = [
-
-            "Executive Summary",
-            "Organization Overview",
-            "Statement of Need",
-            "Project Description",
-            "Use of Funds",
-            "Expected Impact",
-            "Sustainability Plan",
-            "Conclusion"
-
-        ]
-
-        for line in lines:
-
-            line = line.strip()
-
-            if not line:
-                continue
-
-            if line in headings:
-
-                story.append(
-
-                    Paragraph(
-
-                        line,
-
-                        heading_style
-
-                    )
-
-                )
-
-            else:
-
-                story.append(
-
-                    Paragraph(
-
-                        line,
-
-                        body_style
-
-                    )
-
-                )
-
-        # BUILD PDF
-
-        doc.build(story)
-
-        # RETURN PDF
-
-        return FileResponse(
-
-            path=filename,
-
-            media_type="application/pdf",
-
-            filename=os.path.basename(filename)
-
-        )
-
-    except Exception as e:
-
-        print("PDF ERROR:", str(e))
-
-        return {
-
-            "success": False,
-            "error": str(e)
-
-        }
-        
