@@ -212,36 +212,34 @@ async def grant_search(data: GrantSearchRequest):
 
     try:
 
-        business_type = getattr(data, "businessType", "business")
-        state = getattr(data, "state", "USA") or "USA"
-
         queries = [
 
-            f"{business_type} {state} grants 2026 open application",
-            f"{business_type} {state} small business grants 2026",
-            f"{business_type} {state} startup funding 2026",
-            f"{business_type} federal grants 2026",
-            f"{business_type} entrepreneur grants 2026",
-            f"{business_type} business funding 2026",
-            f"{business_type} government grants 2026"
+            f"{data.businessType} grants USA",
+            f"{data.businessType} small business grants",
+            f"{data.businessType} startup funding",
+            f"{data.businessType} federal grants",
+            f"{data.businessType} grant program",
+            f"{data.businessType} entrepreneur grants",
+            f"{data.businessType} business funding"
 
         ]
 
         # KEYWORDS
 
-        if getattr(data, "keywords", None):
+        if data.keywords:
 
-            queries.extend([
+            queries.append(
+                f"{data.keywords} grants"
+            )
 
-                f"{data.keywords} grants",
+            queries.append(
                 f"{data.keywords} funding"
-
-            ])
+            )
 
         # STATE SEARCHES
 
         if data.state and data.state.strip().lower() != "usa":
-
+            
             queries.extend([
 
                 f"{data.businessType} grants {data.state}",
@@ -339,6 +337,7 @@ async def grant_search(data: GrantSearchRequest):
             "reddit",
             "wikipedia",
             "news",
+
             "event",
             "conference",
             "seminar",
@@ -356,11 +355,10 @@ async def grant_search(data: GrantSearchRequest):
 
         provider_count = {}
 
-        # REMOVE DUPLICATE QUERIES
-
-        queries = list(set(queries))
-
         # SEARCH
+        
+        # REMOVE DUPLICATE QUERIES
+        queries = list(set(queries))
 
         with DDGS(timeout=20) as ddgs:
 
@@ -371,7 +369,7 @@ async def grant_search(data: GrantSearchRequest):
                     results = list(
                         ddgs.text(
                             query,
-                            max_results=5
+                            max_results=12
                         )
                     )
 
@@ -403,52 +401,27 @@ async def grant_search(data: GrantSearchRequest):
                         seen.add(clean_url)
 
                         url_lower = url.lower()
+
                         title_lower = title.lower()
+
                         body_lower = body.lower()
 
-                        # REMOVE OLD / EXPIRED
-
-                        if any(
-                            old_year in body_lower or old_year in title_lower
-                            for old_year in [
-                                "2020",
-                                "2021",
-                                "2022",
-                                "2023",
-                                "2024"
-                            ]
-                        ):
-                            continue
-
-                        if "closed" in body_lower:
-                            continue
-
-                        if "expired" in body_lower:
-                            continue
-
-                        if "deadline passed" in body_lower:
-                            continue
-
-                        if "past deadline" in body_lower:
-                            continue
-
                         # NORMALIZE TITLE
-
                         normalized_title = " ".join(
-                            title_lower
-                            .replace("-", "")
-                            .replace("|", "")
-                            .replace(":", "")
-                            .replace(",", "")
-                            .replace(".", "")
-                            .split()
+                           title_lower
+                           .replace("-", "")
+                           .replace("|", "")
+                           .replace(":", "")
+                           .replace(",", "")
+                           .replace(".", "")
+                           .split()
                         )
 
+                        # DEDUPLICATE SIMILAR TITLES
                         if normalized_title in seen_titles:
                             continue
-
                         seen_titles.add(normalized_title)
-
+                        
                         # BAD FILTER
 
                         if any(
@@ -477,7 +450,7 @@ async def grant_search(data: GrantSearchRequest):
 
                         provider_count[provider] += 1
 
-                        # SCORE
+                        # SCORING
 
                         score = 0
 
@@ -486,6 +459,8 @@ async def grant_search(data: GrantSearchRequest):
 
                         if "funding" in body_lower:
                             score += 10
+                        
+                        business_words = data.businessType.lower().split()
 
                         if data.businessType and data.businessType.lower() in body_lower:
                             score += 20
@@ -507,16 +482,25 @@ async def grant_search(data: GrantSearchRequest):
 
                         if "$" in str(body):
                             score += 10
-
-                        if "2026" in body_lower:
-                            score += 20
-
-                        elif "2025" in body_lower:
-                            score += 5
-
+                       
+                        if "2025" in body_lower or "2026" in body_lower:
+                           score += 10
+                            
                         if "small business" in body_lower:
                             score += 5
 
+                        if "closed" in body_lower:
+                            score -= 50
+
+                        if "expired" in body_lower:
+                            score -= 50
+
+                        if "deadline passed" in body_lower:
+                            score -= 50
+                            
+                        if "2021" in body_lower or "2022" in body_lower:
+                            score -= 20
+                            
                         # STATE PRIORITY
 
                         if data.state.strip().lower() != "usa":
@@ -535,7 +519,7 @@ async def grant_search(data: GrantSearchRequest):
 
                         # MINIMUM SCORE
 
-                        if score < 55:
+                        if score < 30:
                             continue
 
                         # RECOMMENDATION
@@ -553,6 +537,8 @@ async def grant_search(data: GrantSearchRequest):
 
                         else:
                             recommendation = "LOW MATCH"
+
+                        # SAVE
 
                         grants.append({
 
@@ -575,20 +561,71 @@ async def grant_search(data: GrantSearchRequest):
 
                         print("INNER ERROR:", e)
 
-        # SORT RESULTS
+        # PRIORITIZE STATE RESULTS
 
-        grants = sorted(
+        if data.state.strip().lower() != "usa":
+            
+            state_grants = []
+            other_grants = []
 
-            grants,
+            for g in grants:
 
-            key=lambda x: (
-                x["matchScore"],
-                ".gov" in x["applicationUrl"]
-            ),
+                text_blob = (
+                    g["grantName"] +
+                    g["description"] +
+                    g["applicationUrl"]
+                ).lower()
 
-            reverse=True
+                if data.state.strip().lower() in text_blob:
 
-        )
+                    state_grants.append(g)
+
+                else:
+
+                    other_grants.append(g)
+
+            state_grants = sorted(
+
+                state_grants,
+
+                key=lambda x: (
+                    x["matchScore"],
+                    ".gov" in x["applicationUrl"]
+                ),
+
+                reverse=True
+
+            )
+
+            other_grants = sorted(
+
+                other_grants,
+
+                key=lambda x: (
+                    x["matchScore"],
+                    ".gov" in x["applicationUrl"]
+                ),
+
+                reverse=True
+
+            )
+
+            grants = state_grants + other_grants
+
+        else:
+
+            grants = sorted(
+
+                grants,
+
+                key=lambda x: (
+                    x["matchScore"],
+                    ".gov" in x["applicationUrl"]
+                ),
+
+                reverse=True
+
+            )
 
         # EMPTY RESULTS
 
@@ -621,6 +658,7 @@ async def grant_search(data: GrantSearchRequest):
             "error": str(e)
 
         }
+
 # =========================
 # RATE LIMITER
 # =========================
