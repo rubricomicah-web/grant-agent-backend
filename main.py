@@ -28,6 +28,15 @@ from sqlalchemy.orm import (
 
 from passlib.context import CryptContext
 
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto"
+)
+
+def hash_password(password: str):
+    password = password[:72]   # limit bcrypt input
+    return pwd_context.hash(password)
+
 from jose import jwt, JWTError
 
 from datetime import (
