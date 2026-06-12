@@ -196,6 +196,77 @@ groq_client = Groq(
     api_key=os.getenv("GROQ_API_KEY")
 )
 
+@app.get("/api/grants")
+async def get_grants(db=Depends(get_db)):
+
+    grants = db.query(Grant).all()
+
+    return {
+        "success": True,
+        "grants": [
+            {
+                "id": g.id,
+                "title": g.title,
+                "agency": g.agency,
+                "funding_amount": g.funding_amount,
+                "deadline": g.deadline,
+                "eligibility": g.eligibility,
+                "category": g.category,
+                "apply_url": g.apply_url,
+                "source": g.source
+            }
+            for g in grants
+        ]
+    }
+
+@app.post("/api/grants/seed")
+async def seed_grants(db=Depends(get_db)):
+
+    sample_grants = [
+        Grant(
+            title="USDA Rural Business Development Grant",
+            agency="USDA",
+            funding_amount="$50,000 - $500,000",
+            deadline="2026-07-30",
+            eligibility="Small Businesses",
+            category="Business",
+            apply_url="https://www.rd.usda.gov/programs-services",
+            source="USDA"
+        ),
+
+        Grant(
+            title="Small Business Innovation Research (SBIR)",
+            agency="SBA",
+            funding_amount="$100,000 - $2,000,000",
+            deadline="2026-09-15",
+            eligibility="US Small Businesses",
+            category="Technology",
+            apply_url="https://www.sbir.gov",
+            source="SBA"
+        ),
+
+        Grant(
+            title="Minority Business Development Agency Grant",
+            agency="MBDA",
+            funding_amount="$75,000 - $300,000",
+            deadline="2026-08-20",
+            eligibility="Minority-Owned Businesses",
+            category="Business",
+            apply_url="https://www.mbda.gov",
+            source="MBDA"
+        )
+    ]
+
+    for grant in sample_grants:
+        db.add(grant)
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Sample grants added"
+    }
+    
 @app.post("/chat")
 async def chat(data: ChatRequest):
 
