@@ -46,6 +46,20 @@ class User(Base):
     plan = Column(String(100))
     created_at = Column(DateTime, default=datetime.utcnow)
 
+class Grant(Base):
+    __tablename__ = "grants"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(500))
+    agency = Column(String(255))
+    funding_amount = Column(String(255))
+    deadline = Column(String(100))
+    eligibility = Column(String)
+    category = Column(String(255))
+    apply_url = Column(String)
+    source = Column(String(255))
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 Base.metadata.create_all(bind=engine)
 
 class SignupRequest(BaseModel):
